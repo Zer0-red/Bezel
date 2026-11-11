@@ -33,6 +33,7 @@ export const DEVICES = [
   { id: 'pixel-8', name: 'Pixel 8', brand: 'Google', category: 'Mobile', year: 2023, width: 412, height: 915, frame: 'punch', ua: 'android', dpr: 2.625 },
 
   // ── Samsung phones ──
+  { id: 'galaxy-s26-ultra', name: 'Galaxy S26 Ultra', brand: 'Samsung', category: 'Mobile', year: 2026, width: 412, height: 891, frame: 'punch', ua: 'android', dpr: 3.5 },
   { id: 'galaxy-s25-ultra', name: 'Galaxy S25 Ultra', brand: 'Samsung', category: 'Mobile', year: 2025, width: 412, height: 891, frame: 'punch', ua: 'android', dpr: 3.5 },
   { id: 'galaxy-s25', name: 'Galaxy S25', brand: 'Samsung', category: 'Mobile', year: 2025, width: 360, height: 780, frame: 'punch', ua: 'android', dpr: 3 },
   { id: 'galaxy-s24', name: 'Galaxy S24', brand: 'Samsung', category: 'Mobile', year: 2024, width: 360, height: 780, frame: 'punch', ua: 'android', dpr: 3 },

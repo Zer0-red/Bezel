@@ -87,6 +87,16 @@ The `Deploy to GitHub Pages` workflow publishes the web version on every push to
 
 When Bezel is served from a public address like GitHub Pages, Chrome (142 and later) asks once for permission to reach devices on your local network before it can load `localhost` pages. Choose **Allow**. Running it locally (`npm run dev`) or using the Windows app avoids the prompt.
 
+### Trying a test build of the Windows app
+
+Every push to `staging` builds the installer without publishing it (`Test build (Windows)` workflow, about 5 minutes):
+
+1. On GitHub, open **Actions → Test build (Windows)** and click the latest run.
+2. Under **Artifacts** at the bottom, download `Bezel-Setup-test-…` (you need to be signed in to GitHub). It's a zip.
+3. Unzip it and run `Bezel-Setup-x.y.z.exe`. If Windows shows "Windows protected your PC", click **More info → Run anyway**.
+
+A test build installs like the real app. It looks for updates on the Releases page, so once a real release exists it updates to that.
+
 ### Releasing the Windows app
 
 1. Bump the version: `npm run version:bump` (adds 0.0.1, see *Versions* below).

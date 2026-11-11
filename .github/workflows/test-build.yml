@@ -1,0 +1,41 @@
+name: Test build (Windows)
+
+# Builds the Windows installer from staging so it can be tried before a
+# release. Nothing is published: the installer is attached to the workflow
+# run as an artifact (Actions → this run → Artifacts), kept for 14 days.
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Build installer (not published)
+        run: npx electron-builder --win --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bezel-Setup-test-${{ github.sha }}
+          path: release/*.exe
+          retention-days: 14
+          if-no-files-found: error
