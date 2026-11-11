@@ -4,10 +4,100 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="See your website on every screen at once." />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='8' y='2' width='16' height='28' rx='5' fill='%23f0a43a'/%3E%3Crect x='10.5' y='5' width='11' height='22' rx='2.5' fill='%2316191f'/%3E%3C/svg%3E" />
     <title>Bezel</title>
   </head>
   <body>
-    <div id="app"></div>
+    <header class="toolbar">
+      <a class="brand" href="./" aria-label="Bezel home">
+        <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="8" y="2" width="16" height="28" rx="5" />
+          <rect class="brand__screen" x="10.5" y="5" width="11" height="22" rx="2.5" />
+        </svg>
+        <span class="brand__name">Bezel</span>
+      </a>
+
+      <form class="address" id="address-form" autocomplete="off">
+        <label class="visually-hidden" for="address-input">Website address</label>
+        <svg class="address__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
+        </svg>
+        <input
+          id="address-input"
+          class="address__input"
+          type="text"
+          inputmode="url"
+          spellcheck="false"
+          placeholder="localhost:3000"
+          list="recent-urls"
+        />
+        <datalist id="recent-urls"></datalist>
+        <button class="address__go" type="submit">Open</button>
+      </form>
+
+      <div class="controls">
+        <button class="icon-btn" id="reload-btn" type="button" aria-label="Reload all devices" title="Reload all devices (Alt+Shift+R)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></svg>
+        </button>
+        <button class="icon-btn" id="rotate-btn" type="button" aria-label="Rotate" title="Rotate (Alt+R)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="9" width="14" height="11" rx="2" /><path d="M10 4h4a6 6 0 0 1 6 6v1" /><path d="m17.5 8.5 2.5 2.5 2.5-2.5" /></svg>
+        </button>
+
+        <div class="segmented" role="group" aria-label="View">
+          <button type="button" data-mode="grid" title="All devices (Alt+0)">All devices</button>
+          <button type="button" data-mode="focus" title="One device (Alt+1 to Alt+5)">One device</button>
+        </div>
+
+        <label class="zoom">
+          <span class="visually-hidden">Zoom</span>
+          <select id="zoom-select">
+            <option value="fit">Fit</option>
+            <option value="0.25">25%</option>
+            <option value="0.5">50%</option>
+            <option value="0.75">75%</option>
+            <option value="1">100%</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <nav class="devicebar" id="devicebar" aria-label="Devices"></nav>
+
+    <main class="stage" id="stage">
+      <div class="rack" id="rack"></div>
+      <p class="stage__empty" id="stage-empty" hidden>No devices selected. Pick one or more from the bar above.</p>
+    </main>
+
+    <dialog class="dialog" id="custom-dialog" aria-labelledby="custom-title">
+      <form method="dialog" id="custom-form" class="dialog__form">
+        <h2 id="custom-title">Add a custom size</h2>
+        <label class="field">
+          <span>Name</span>
+          <input name="name" type="text" required maxlength="40" placeholder="My phone" />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Width (px)</span>
+            <input name="width" type="number" required min="200" max="7680" step="1" placeholder="390" />
+          </label>
+          <label class="field">
+            <span>Height (px)</span>
+            <input name="height" type="number" required min="200" max="7680" step="1" placeholder="844" />
+          </label>
+        </div>
+        <label class="field">
+          <span>Type</span>
+          <select name="category"></select>
+        </label>
+        <div class="dialog__actions">
+          <button type="button" class="btn btn--quiet" id="custom-cancel">Cancel</button>
+          <button type="submit" class="btn btn--primary" value="add">Add device</button>
+        </div>
+      </form>
+    </dialog>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

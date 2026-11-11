@@ -2,12 +2,11 @@
 
 **See your website on every screen at once.**
 
-Bezel is a browser-based tool for responsive web development. Point it at your local dev server and preview your site on phones, tablets, laptops, desktops and large screens side by side. You can switch devices with one click while you work.
+Bezel is a browser-based tool for responsive web development. Point it at your local dev server and preview your site on phones, tablets, laptops, desktops and large screens side by side. Each one is drawn as real hardware, and you can switch devices with one click while you work.
 
 ![Runs in](https://img.shields.io/badge/runs%20in-Chrome%20%7C%20Edge%20%7C%20Firefox-0078D6)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-<!-- Replace with a real screenshot once the UI is ready -->
 ![Bezel screenshot](docs/screenshot.png)
 
 ---
@@ -15,12 +14,14 @@ Bezel is a browser-based tool for responsive web development. Point it at your l
 ## Features
 
 - **Side-by-side preview**: mobile, tablet, laptop, desktop and large-screen views appear together, scaled to fit your window.
+- **Real device frames**: phones with a Dynamic Island, punch-hole camera or home button; tablets; laptops with their keyboard base; monitors on a stand.
 - **One-click device switching**: use the device bar or a keyboard shortcut to jump between devices without losing your place.
-- **Focus mode**: click any frame to enlarge it, then go back to the full grid.
-- **Device library**: includes presets for popular phones, tablets and monitors. You can add custom sizes and save them as your own presets.
-- **Rotate**: switch any device between portrait and landscape.
-- **Built for localhost**: works with `http://localhost:3000` or any local dev server. If your server has hot reload (Next.js, Vite, etc.), every frame updates when you save.
-- **Live dimensions**: each frame shows its width × height so you always know which breakpoint you're looking at.
+- **Focus mode**: open any device on its own at full size, then go back to the full row.
+- **Device library**: includes presets for popular phones, tablets and monitors. You can add custom sizes and they're saved in your browser.
+- **Rotate**: switch phones, tablets and monitors between portrait and landscape.
+- **Built for localhost**: works with `http://localhost:3000` or any local dev server. Type just `3000` and Bezel fills in the rest. If your server has hot reload (Next.js, Vite, etc.), every frame updates when you save.
+- **Live dimensions**: each device shows its width × height and current zoom, so you always know which breakpoint you're looking at.
+- **Shareable links**: the address you're testing is kept in the page URL (`?url=…`), so you can bookmark a setup.
 
 ## How it works
 
@@ -42,7 +43,7 @@ Each device is an `<iframe>` set to that device's exact viewport size, then scal
 | Large screen | QHD | 2560 × 1440 |
 | Large screen | 4K | 3840 × 2160 |
 
-Add your own from **Devices → Add custom size**.
+To add your own, use **Custom size** at the end of the device bar.
 
 ## Getting started
 
@@ -55,7 +56,7 @@ npm install
 npm run dev
 ```
 
-Then open **http://localhost:5173** and enter your dev server's address, such as `http://localhost:3000`.
+Bezel opens at **http://localhost:5173**. Enter your dev server's address, such as `localhost:3000`, and press **Open**.
 
 ### Build
 
@@ -63,27 +64,33 @@ Then open **http://localhost:5173** and enter your dev server's address, such as
 npm run build
 ```
 
-This writes static files to `dist/`. Running Bezel locally next to your dev server works best. If you host it on a public domain, browsers may ask for permission before it can load `localhost` pages, or block them.
+This writes static files to `dist/`. Bezel has no server side, so you can host those files anywhere.
+
+### Hosting on GitHub Pages
+
+The repo includes a workflow that publishes Bezel to GitHub Pages on every push to `main`. To turn it on once, go to **Settings → Pages** and set **Source** to **GitHub Actions**.
+
+Running Bezel locally is still the smoothest option for localhost testing. When it's served from a public site like GitHub Pages, Chrome (142 and later) asks once for permission to connect to devices on your local network before it can load `localhost` pages. Choose **Allow**.
 
 ## Usage
 
 1. Start your project's dev server as usual.
-2. Type its URL in Bezel's address bar.
+2. Type its address in Bezel's address bar and press **Open**.
 3. Choose which devices to show from the device bar.
-4. Click a device to focus it, or press `Alt+0` to go back to the grid.
-5. Use the rotate button to switch between portrait and landscape.
+4. Click a device's name to open it on its own. Press `Esc` or `Alt+0` to go back to all devices.
+5. Use the rotate button under a device, or `Alt+R`, to switch between portrait and landscape.
 
 ### Keyboard shortcuts
 
-Shortcuts work while Bezel's own UI has focus. If you've been clicking inside a frame, click the toolbar first.
+Shortcuts work while Bezel's own UI has focus. Clicking inside a device sends your keystrokes to that website, so click the toolbar or the space around the devices first.
 
 | Shortcut | Action |
 |---|---|
 | `/` | Focus the address bar |
-| `Alt+1` – `Alt+5` | Jump to Mobile / Tablet / Laptop / Desktop / Large screen |
-| `Alt+0` | Show all devices |
-| `Alt+R` | Rotate the focused device |
-| `Alt+Shift+R` | Reload all frames |
+| `Alt+1` – `Alt+5` | Open a Mobile / Tablet / Laptop / Desktop / Large screen device on its own |
+| `Alt+0` or `Esc` | Show all devices |
+| `Alt+R` | Rotate the device on screen (in the all-devices view, all phones and tablets) |
+| `Alt+Shift+R` | Reload all devices |
 
 ## Limitations
 
@@ -95,13 +102,25 @@ Bezel is built for testing your own sites during development. Because it uses if
 
 For pixel-density or touch checks, use your browser's DevTools device mode on a single device.
 
+## Project structure
+
+```
+index.html          App shell: toolbar, device bar, stage, custom-size dialog
+src/main.js         State, rendering, shortcuts
+src/frames.js       Geometry of each device frame (bezels, notch, stand…)
+src/devices.js      Device presets
+src/url.js          Turns "3000" or "localhost:5173" into a full address
+src/storage.js      Saves settings in localStorage
+src/styles.css      All styles
+```
+
 ## Roadmap
 
 - [ ] Synced scrolling across all devices (via an optional helper script you add to your dev site)
 - [ ] Synced clicks and navigation
 - [ ] Screenshots for each device
 - [ ] Save device sets per project
-- [ ] Light and dark themes for the app UI
+- [ ] Light theme for the app UI
 - [ ] Optional desktop build (Electron) for sites that block framing
 
 ## Contributing
