@@ -16,6 +16,7 @@
           <rect class="brand__screen" x="10.5" y="5" width="11" height="22" rx="2.5" />
         </svg>
         <span class="brand__name">Bezel</span>
+        <span class="brand__version" id="app-version"></span>
       </a>
 
       <form class="address" id="address-form" autocomplete="off">
@@ -67,36 +68,66 @@
 
     <main class="stage" id="stage">
       <div class="rack" id="rack"></div>
-      <p class="stage__empty" id="stage-empty" hidden>No devices selected. Pick one or more from the bar above.</p>
+      <p class="stage__empty" id="stage-empty" hidden>No devices in view. Choose a setup or add a device from the bar above.</p>
     </main>
 
-    <dialog class="dialog" id="custom-dialog" aria-labelledby="custom-title">
-      <form method="dialog" id="custom-form" class="dialog__form">
-        <h2 id="custom-title">Add a custom size</h2>
-        <label class="field">
-          <span>Name</span>
-          <input name="name" type="text" required maxlength="40" placeholder="My phone" />
+    <!-- Setups menu (opened by the setup button in the device bar) -->
+    <div class="menu" id="setups-menu" popover></div>
+
+    <!-- Device library -->
+    <dialog class="library" id="library" aria-labelledby="library-title">
+      <div class="library__head">
+        <h2 id="library-title">Add devices</h2>
+        <label class="library__search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <span class="visually-hidden">Search devices</span>
+          <input id="library-search" type="search" spellcheck="false" placeholder="Search, like Pixel, MacBook or 390" />
         </label>
-        <div class="field-row">
-          <label class="field">
-            <span>Width (px)</span>
-            <input name="width" type="number" required min="200" max="7680" step="1" placeholder="390" />
-          </label>
-          <label class="field">
-            <span>Height (px)</span>
-            <input name="height" type="number" required min="200" max="7680" step="1" placeholder="844" />
-          </label>
+        <button class="icon-btn" id="library-close" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" /></svg>
+        </button>
+      </div>
+      <div class="library__body">
+        <nav class="library__tabs" id="library-tabs" role="tablist" aria-label="Device types"></nav>
+        <div class="library__panel">
+          <div id="library-panel"></div>
+          <form id="custom-form" class="custom-form" hidden autocomplete="off">
+            <h3>New custom size</h3>
+            <label class="field">
+              <span>Name</span>
+              <input name="name" type="text" required maxlength="40" placeholder="My phone" />
+            </label>
+            <div class="field-row">
+              <label class="field">
+                <span>Width (px)</span>
+                <input name="width" type="number" required min="200" max="7680" step="1" placeholder="390" />
+              </label>
+              <label class="field">
+                <span>Height (px)</span>
+                <input name="height" type="number" required min="200" max="7680" step="1" placeholder="844" />
+              </label>
+            </div>
+            <label class="field">
+              <span>Type</span>
+              <select name="category"></select>
+            </label>
+            <div class="dialog__actions">
+              <button type="submit" class="btn btn--primary">Add custom size</button>
+            </div>
+          </form>
         </div>
-        <label class="field">
-          <span>Type</span>
-          <select name="category"></select>
-        </label>
-        <div class="dialog__actions">
-          <button type="button" class="btn btn--quiet" id="custom-cancel">Cancel</button>
-          <button type="submit" class="btn btn--primary" value="add">Add device</button>
-        </div>
-      </form>
+      </div>
+      <div class="library__foot">
+        <span id="library-count"></span>
+        <button type="button" class="btn btn--primary" id="library-done">Done</button>
+      </div>
     </dialog>
+
+    <div class="toast" id="update-toast" role="status" hidden>
+      <span id="update-text">A new version of Bezel is ready.</span>
+      <button type="button" class="btn btn--quiet" id="update-later">Later</button>
+      <button type="button" class="btn btn--primary" id="update-restart">Restart to update</button>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

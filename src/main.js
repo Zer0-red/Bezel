@@ -1,9 +1,19 @@
 import '@fontsource-variable/instrument-sans';
 import './styles.css';
-import { CATEGORIES, DEFAULT_DEVICE_IDS, DEVICES } from './devices.js';
+import { CATEGORIES, DEFAULT_DEVICE_IDS, DEVICES, POPULAR_DEVICES } from './devices.js';
+import { createPicker } from './picker.js';
 import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
+import { emulationFor } from './emulation.js';
+
+// In the Windows app (electron/preload.cjs) devices are real browser views
+// instead of iframes, so every site loads and phones get mobile emulation.
+const bridge = window.bezel?.isApp ? window.bezel : null;
+if (bridge) document.documentElement.dataset.app = 'desktop';
+
+// Version from package.json (vite.config.js), top left next to the name.
+document.querySelector('#app-version').textContent = `v${__APP_VERSION__}`;
 
 // ── State ────────────────────────────────────────────────────
 
@@ -19,20 +29,23 @@ const defaults = {
   zoom: 'fit',
   rotated: {},
   custom: [],
+  setups: [], // the user's saved setups
   lastByCategory: {},
 };
 
 const state = { ...defaults, ...loadState() };
 
-// Built-in and custom devices, grouped in category order.
+// Library devices, popular sizes and custom sizes, grouped in category order.
 const allDevices = () =>
-  [...DEVICES, ...state.custom].sort((a, b) => CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category));
+  [...DEVICES, ...POPULAR_DEVICES, ...state.custom].sort((a, b) => CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category));
 const deviceById = (id) => allDevices().find((d) => d.id === id);
 
 // Drop anything stale from an older saved state.
 state.selected = state.selected.filter((id) => deviceById(id));
 if (!deviceById(state.focusId)) state.focusId = state.selected[0] ?? DEVICES[0].id;
 if (!['grid', 'focus'].includes(state.mode)) state.mode = 'grid';
+if (!Array.isArray(state.setups)) state.setups = [];
+if (!Array.isArray(state.custom)) state.custom = [];
 
 // A ?url= link wins over the saved address.
 const linkedUrl = normalizeUrl(new URLSearchParams(location.search).get('url'));
@@ -55,9 +68,10 @@ const els = {
   stage: $('#stage'),
   rack: $('#rack'),
   empty: $('#stage-empty'),
-  dialog: $('#custom-dialog'),
-  customForm: $('#custom-form'),
-  customCancel: $('#custom-cancel'),
+  update: $('#update-toast'),
+  updateText: $('#update-text'),
+  updateRestart: $('#update-restart'),
+  updateLater: $('#update-later'),
 };
 
 function h(tag, attrs = {}, ...children) {
@@ -82,6 +96,9 @@ const ICONS = {
     '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>',
   plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  stack:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="6" height="11" rx="1.5"/><rect x="10.5" y="5" width="11" height="9" rx="1.5"/><path d="M13 18h6"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>',
 };
 
 function iconButton(icon, label, onClick, extraClass = '') {
@@ -92,7 +109,7 @@ function iconButton(icon, label, onClick, extraClass = '') {
 
 // ── Device rigs (frame + caption) ────────────────────────────
 
-/** id → { root, frame, device, body, screen, iframe, name, dims, scale, rotateBtn, focusBtn, geomKey } */
+/** id → { root, frame, device, body, screen, view, url, name, dims, scale, rotateBtn, focusBtn, geomKey } */
 const rigs = new Map();
 
 function createRig(device) {
@@ -124,34 +141,90 @@ function createRig(device) {
   );
 
   const root = h('figure', { class: 'rig', 'data-id': device.id }, frame, caption);
-  const rig = { root, frame, device: deviceEl, body, screen, iframe: null, name, dims, scale, rotateBtn, focusBtn, geomKey: '' };
+  const rig = { root, frame, device: deviceEl, body, screen, view: null, url: '', name, dims, scale, rotateBtn, focusBtn, geomKey: '' };
   setRigUrl(rig, device, state.url);
   return rig;
 }
 
+function setScreenMessage(rig, text) {
+  rig.screen.querySelector('.screen-empty')?.remove();
+  if (text) rig.screen.append(h('div', { class: 'screen-empty' }, h('p', { text })));
+}
+
+/** The web page inside a device: an iframe on the web, a real browser view in the app. */
+function createView(rig, device) {
+  if (!bridge) {
+    const frame = h('iframe', { title: `${device.name} preview`, allow: 'fullscreen; clipboard-write' });
+    frame.addEventListener('load', () => rig.root.classList.remove('is-loading'));
+    return frame;
+  }
+
+  // Emulation is switched on while the view shows a blank page, so the site's
+  // very first load already sees the phone's pixel density, viewport rules and touch.
+  const emulation = emulationFor(device);
+  const view = h('webview', {
+    title: `${device.name} preview`,
+    partition: 'persist:bezel', // devices share cookies, so a login works in all of them
+    useragent: emulation?.userAgent,
+    src: 'about:blank',
+  });
+  rig.emulation = emulation;
+  let ready = false;
+  view.addEventListener('dom-ready', async () => {
+    if (ready) return;
+    ready = true;
+    rig.viewReady = true;
+    await applyEmulation(rig, device);
+    if (rig.url) view.loadURL(rig.url).catch(() => {});
+  });
+  view.addEventListener('did-start-loading', () => setScreenMessage(rig, ''));
+  view.addEventListener('did-stop-loading', () => rig.root.classList.remove('is-loading'));
+  view.addEventListener('did-fail-load', (e) => {
+    if (!e.isMainFrame || e.errorCode === -3) return; // -3: replaced by a newer load
+    let host = rig.url;
+    try {
+      host = new URL(e.validatedURL || rig.url).host;
+    } catch {
+      /* keep the address as typed */
+    }
+    setScreenMessage(rig, `Couldn’t open ${host}. Check that the server is running and the address is right.`);
+  });
+  return view;
+}
+
+/** Desktop app: phone/tablet emulation at the device's current (possibly rotated) size. */
+async function applyEmulation(rig, device) {
+  if (!bridge || !rig.emulation || !rig.viewReady) return;
+  const g = geometry(device, !!state.rotated[device.id]);
+  await bridge.emulate(rig.view.getWebContentsId(), { ...rig.emulation, width: g.w, height: g.h });
+}
+
 function setRigUrl(rig, device, url, { force = false } = {}) {
   if (!url) {
-    rig.iframe?.remove();
-    rig.iframe = null;
+    rig.view?.remove();
+    rig.view = null;
+    rig.viewReady = false;
+    rig.url = '';
     rig.root.classList.remove('is-loading');
-    if (!rig.screen.querySelector('.screen-empty')) {
-      rig.screen.append(
-        h('div', { class: 'screen-empty' }, h('p', { text: 'Type your dev server’s address above, like localhost:3000, and press Open.' })),
-      );
-    }
+    setScreenMessage(rig, 'Type your dev server’s address above, like localhost:3000, and press Open.');
     return;
   }
 
-  rig.screen.querySelector('.screen-empty')?.remove();
-  if (!rig.iframe) {
-    rig.iframe = h('iframe', { title: `${device.name} preview`, allow: 'fullscreen; clipboard-write' });
-    rig.iframe.addEventListener('load', () => rig.root.classList.remove('is-loading'));
-    rig.screen.append(rig.iframe);
-  } else if (rig.iframe.getAttribute('src') === url && !force) {
+  if (!rig.view) {
+    setScreenMessage(rig, '');
+    rig.view = createView(rig, device);
+    rig.screen.append(rig.view);
+  } else if (rig.url === url && !force) {
     return;
   }
+  rig.url = url;
   rig.root.classList.add('is-loading');
-  rig.iframe.src = url; // setting src again reloads, even with the same address
+
+  if (!bridge) {
+    rig.view.src = url; // setting src again reloads, even with the same address
+  } else if (rig.viewReady) {
+    rig.view.loadURL(url).catch(() => {});
+  } // otherwise the view loads rig.url as soon as it is ready (see createView)
 }
 
 function renderParts(rig, g) {
@@ -205,7 +278,7 @@ function syncRigs() {
     }
   }
 
-  // Insert new rigs in device order without moving existing ones (moving an iframe reloads it).
+  // Insert new rigs in device order without moving existing ones (moving a frame or view reloads it).
   order.forEach((id, index) => {
     if (!wanted.has(id) || rigs.has(id)) return;
     const rig = createRig(deviceById(id));
@@ -241,8 +314,10 @@ function layout() {
 
     const key = `${g.kind}:${g.w}x${g.h}`;
     if (key !== rig.geomKey) {
+      const resized = rig.geomKey !== '';
       renderParts(rig, g);
       rig.geomKey = key;
+      if (resized) applyEmulation(rig, device); // rotated: tell the emulated phone its new size
     }
 
     let s;
@@ -279,46 +354,19 @@ function renderToolbar() {
   els.reload.disabled = !state.url;
 }
 
-function renderDeviceBar() {
-  const isGrid = state.mode === 'grid';
-  const groups = CATEGORIES.map((category) => {
-    const devices = allDevices().filter((d) => d.category === category);
-    if (!devices.length) return null;
-    const chips = devices.map((device) => {
-      const pressed = isGrid ? state.selected.includes(device.id) : state.focusId === device.id;
-      const chip = h(
-        'span',
-        { class: `chip${device.custom ? ' chip--custom' : ''}` },
-        h('button', {
-          class: 'chip__btn',
-          type: 'button',
-          'aria-pressed': String(pressed),
-          title: `${device.width} × ${device.height}`,
-          text: device.name,
-          onclick: () => (isGrid ? toggleSelected(device.id) : focusDevice(device.id)),
-        }),
-      );
-      if (device.custom) {
-        chip.append(iconButton('close', `Remove ${device.name}`, () => removeCustom(device.id), 'chip__remove'));
-      }
-      return chip;
-    });
-    return h('div', { class: 'devicebar__group', role: 'group', 'aria-label': category }, h('span', { class: 'devicebar__cat', text: category }), ...chips);
-  }).filter(Boolean);
-
-  const addBtn = h('button', { class: 'chip__btn chip__btn--add', type: 'button', onclick: openCustomDialog });
-  addBtn.innerHTML = `${ICONS.plus}<span>Custom size</span>`;
-
-  els.devicebar.replaceChildren(
-    h('span', { class: 'devicebar__hint', text: isGrid ? 'Show' : 'View on' }),
-    ...groups,
-    h('span', { class: 'chip' }, addBtn),
-  );
+/** All-devices view: bring a device into view and highlight it briefly. */
+function scrollToDevice(id) {
+  const rig = rigs.get(id);
+  if (!rig) return;
+  rig.root.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+  rig.root.classList.remove('is-flash');
+  void rig.root.offsetWidth; // restart the highlight
+  rig.root.classList.add('is-flash');
 }
 
 function render() {
   renderToolbar();
-  renderDeviceBar();
+  picker.renderBar();
   syncRigs();
 }
 
@@ -404,36 +452,6 @@ function rotate() {
   layout();
 }
 
-function openCustomDialog() {
-  els.customForm.reset();
-  els.dialog.showModal();
-}
-
-function addCustom(form) {
-  const data = new FormData(form);
-  const width = Math.round(Number(data.get('width')));
-  const height = Math.round(Number(data.get('height')));
-  const name = String(data.get('name')).trim();
-  const category = CATEGORIES.includes(data.get('category')) ? data.get('category') : 'Mobile';
-  if (!name || !(width >= 200 && width <= 7680) || !(height >= 200 && height <= 7680)) return;
-
-  const id = `custom-${Date.now().toString(36)}`;
-  state.custom.push({ id, name, category, width, height, custom: true });
-  if (state.mode === 'grid') state.selected.push(id);
-  else state.focusId = id;
-  persist();
-  render();
-}
-
-function removeCustom(id) {
-  state.custom = state.custom.filter((d) => d.id !== id);
-  state.selected = state.selected.filter((x) => x !== id);
-  delete state.rotated[id];
-  if (state.focusId === id) state.focusId = state.selected[0] ?? DEVICES[0].id;
-  persist();
-  render();
-}
-
 // ── Events ───────────────────────────────────────────────────
 
 els.form.addEventListener('submit', (e) => {
@@ -448,12 +466,6 @@ els.zoom.addEventListener('change', () => {
   state.zoom = els.zoom.value === 'fit' ? 'fit' : Number(els.zoom.value);
   persist();
   layout();
-});
-
-els.customForm.querySelector('select[name="category"]').append(...CATEGORIES.map((c) => h('option', { value: c, text: c })));
-els.customCancel.addEventListener('click', () => els.dialog.close('cancel'));
-els.customForm.addEventListener('submit', (e) => {
-  if (e.submitter?.value === 'add') addCustom(els.customForm);
 });
 
 // Scroll the row of devices sideways with a normal mouse wheel.
@@ -473,7 +485,7 @@ els.stage.addEventListener(
 
 document.addEventListener('keydown', (e) => {
   const typing = e.target.closest?.('input, textarea, select, [contenteditable="true"]');
-  if (els.dialog.open) return;
+  if (picker.isOpen()) return;
 
   if (e.key === '/' && !typing && !e.altKey && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
@@ -486,25 +498,66 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  if (runShortcut(e.code, e.shiftKey)) e.preventDefault();
+});
 
-  const digit = /^Digit([0-5])$/.exec(e.code);
+/** Alt shortcuts. Returns true when the key was one of Bezel's. */
+function runShortcut(code, shift) {
+  if (picker.isOpen()) return false;
+  const digit = /^Digit([0-5])$/.exec(code);
   if (digit) {
-    e.preventDefault();
     const n = Number(digit[1]);
     if (n === 0) setMode('grid');
     else focusCategory(CATEGORIES[n - 1]);
-  } else if (e.code === 'KeyR') {
-    e.preventDefault();
-    if (e.shiftKey) reloadAll();
-    else rotate();
+    return true;
   }
-});
+  if (code === 'KeyR') {
+    if (shift) reloadAll();
+    else rotate();
+    return true;
+  }
+  return false;
+}
+
+// ── Desktop app only ─────────────────────────────────────────
+
+if (bridge) {
+  // In the app, shortcuts also work while a device has focus.
+  bridge.onShortcut(({ code, shift }) => runShortcut(code, shift));
+
+  // The brand link would reload the app's file; it stays put instead.
+  document.querySelector('.brand')?.addEventListener('click', (e) => e.preventDefault());
+
+  // A downloaded update: offer a restart (it also installs when Bezel is closed).
+  bridge.onUpdate(({ state: updateState, version }) => {
+    if (updateState !== 'ready') return;
+    els.updateText.textContent = `Bezel ${version} is ready.`;
+    els.update.hidden = false;
+  });
+  els.updateRestart.addEventListener('click', () => bridge.installUpdate());
+  els.updateLater.addEventListener('click', () => (els.update.hidden = true));
+}
 
 let frameRequest = 0;
 new ResizeObserver(() => {
   cancelAnimationFrame(frameRequest);
   frameRequest = requestAnimationFrame(layout);
 }).observe(els.stage);
+
+const picker = createPicker({
+  state,
+  h,
+  ICONS,
+  iconButton,
+  allDevices,
+  deviceById,
+  persist,
+  render,
+  toggleSelected,
+  focusDevice,
+  setMode,
+  scrollToDevice,
+});
 
 render();
 if (!state.url) els.input.focus();

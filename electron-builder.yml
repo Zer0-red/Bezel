@@ -1,0 +1,36 @@
+# Windows installer for the Bezel desktop app.
+# Built and published by .github/workflows/release-app.yml when a version tag (v*) is pushed.
+
+appId: io.github.zer0red.bezel
+productName: Bezel
+copyright: Copyright © 2026 Zer0-red
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**
+  - electron/**
+  - package.json
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: true          # installs for the current user, no admin prompt
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Bezel
+  artifactName: Bezel-Setup-${version}.${ext}
+
+# The installed app checks this repo's Releases for updates (electron-updater).
+publish:
+  provider: github
+  owner: Zer0-red
+  repo: Bezel
+  releaseType: release

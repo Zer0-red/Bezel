@@ -1,0 +1,42 @@
+name: Release Windows app
+
+# Builds the Bezel desktop app on Windows and publishes the installer to
+# GitHub Releases. Installed copies update themselves from there.
+#
+# To release: set "version" in package.json (e.g. 0.3.0), commit to main,
+# then push a matching tag:  git tag v0.3.0 && git push origin v0.3.0
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Build installer and publish release
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -43,7 +43,7 @@ export function geometry(device, rotated = false) {
   let extraW = 0;
   let extraH = 0;
 
-  if (kind === 'island' || kind === 'punch' || kind === 'home') {
+  if (kind === 'island' || kind === 'punch' || kind === 'notch' || kind === 'home') {
     // ── Phones ──────────────────────────────────────────────
     const b = r(min * 0.04);
     const thick = kind === 'home' ? r(min * 0.27) : b;
@@ -73,7 +73,16 @@ export function geometry(device, rotated = false) {
       parts.push({ cls: 'btn', x: offX + bw * 0.3, y: offY + bh - 1, w: bw * 0.07, h: t + 1 });
     }
 
-    if (kind === 'island' || kind === 'punch') {
+    if (kind === 'notch') {
+      // Notch phones (iPhone X to 14, 16e): a cut-out hanging from the top edge of the screen.
+      const nw = r(min * 0.4);
+      const nh = r(min * 0.078);
+      if (!landscape) {
+        parts.push({ cls: 'cutout', x: offX + pad.l + (w - nw) / 2, y: offY + pad.t, w: nw, h: nh });
+      } else {
+        parts.push({ cls: 'cutout', x: offX + pad.l, y: offY + pad.t + (h - nw) / 2, w: nh, h: nw });
+      }
+    } else if (kind === 'island' || kind === 'punch') {
       const iw = kind === 'island' ? r(min * 0.3) : r(min * 0.032);
       const ih = kind === 'island' ? r(min * 0.088) : iw;
       const gap = r(min * 0.028);

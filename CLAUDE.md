@@ -1,0 +1,10 @@
+# Working on Bezel
+
+- Bezel is one interface (Vite, plain JS, no framework) shipped two ways: the web version on GitHub Pages and a Windows app (Electron, `electron/`). Keep both working. App-only behaviour goes behind `bridge` (`window.bezel`, from `electron/preload.cjs`); the web version must never depend on it.
+- Branches: work on `staging` first. Merge to `main` only when the user approves; every push to `main` deploys the web version.
+- Versions: every delivered update runs `npm run version:bump` once (adds 0.0.1; each digit rolls over at 9: 0.1.9 → 0.2.0, 0.9.9 → 1.0.0) and commits `package.json` and `package-lock.json`. Don't bump for builds or tests. The version shows top left (`__APP_VERSION__`, vite.config.js).
+- Windows app releases: tag `vX.Y.Z` matching package.json on `main`; `.github/workflows/release-app.yml` builds and publishes to GitHub Releases, and installed apps update from there (electron-updater). Release only when the user asks.
+- Security in the app: device views (`<webview>`, partition `persist:bezel`) get locked-down webPreferences in `will-attach-webview`, only http(s) navigation, and `file://` is blocked on their session. The main window has `contextIsolation`, `sandbox`, no Node. Keep the preload bridge minimal and validate IPC input in `electron/main.cjs`.
+- Device data (`src/devices.js`): viewport sizes in CSS pixels at the default display setting, with a source in mind; don't guess. Keep old device ids (users' saved selections refer to them). Popular sizes come from StatCounter with the month shown; refresh by editing `POPULAR`.
+- Design: dark desk stage, amber accent (#f0a43a), Instrument Sans, realistic device frames. Plain sentence-case copy, no all-caps labels.
+- Checks before pushing: `npm run build`; test the web version in a real browser (Playwright with Chrome) and the app with Electron under xvfb (`--no-sandbox` first in the args). HTTP checks alone are not browser tests.
