@@ -2,6 +2,8 @@
 
 **See your website on every screen at once.**
 
+**▶ Open Bezel: [zer0-red.github.io/Bezel](https://zer0-red.github.io/Bezel/)**. It runs in your browser, with nothing to install.
+
 Bezel is a browser-based tool for responsive web development. Point it at your local dev server and preview your site on phones, tablets, laptops, desktops and large screens side by side. Each one is drawn as real hardware, and you can switch devices with one click while you work.
 
 ![Runs in](https://img.shields.io/badge/runs%20in-Chrome%20%7C%20Edge%20%7C%20Firefox-0078D6)
