@@ -1,0 +1,16 @@
+{
+  "name": "bezel",
+  "version": "0.1.0",
+  "description": "See your website on every screen at once — a browser-based responsive testing tool for local development.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.3.8"
+  }
+}
