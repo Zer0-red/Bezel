@@ -6,6 +6,7 @@ import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
 import { emulationFor } from './emulation.js';
+import { PAGE_SCRIPT, ratioFromConsole, ratioFromMessage } from './sync.js';
 
 // In the Windows app (electron/preload.cjs) devices are real browser views
 // instead of iframes, so every site loads and phones get mobile emulation.
@@ -30,6 +31,7 @@ const defaults = {
   rotated: {},
   custom: [],
   setups: [], // the user's saved setups
+  syncScroll: true, // scroll one device, the others follow
   lastByCategory: {},
 };
 
@@ -62,6 +64,7 @@ const els = {
   recent: $('#recent-urls'),
   reload: $('#reload-btn'),
   rotate: $('#rotate-btn'),
+  sync: $('#sync-btn'),
   modeButtons: document.querySelectorAll('.segmented button'),
   zoom: $('#zoom-select'),
   devicebar: $('#devicebar'),
@@ -205,6 +208,13 @@ function createView(rig, device) {
     rig.viewReady = true;
     await applyEmulation(rig, device);
     if (rig.url) view.loadURL(rig.url).catch(() => {});
+  });
+  view.addEventListener('dom-ready', () => {
+    if (rig.url && view.getURL() !== 'about:blank') view.executeJavaScript(PAGE_SCRIPT).catch(() => {});
+  });
+  view.addEventListener('console-message', (e) => {
+    const ratio = ratioFromConsole(e.message);
+    if (ratio !== null) syncScroll(rig, ratio);
   });
   view.addEventListener('did-start-loading', () => setScreenMessage(rig, ''));
   view.addEventListener('did-stop-loading', () => rig.root.classList.remove('is-loading'));
@@ -410,12 +420,55 @@ function layout() {
   }
 }
 
+// ── Synced scrolling ─────────────────────────────────────────
+
+/** A device was scrolled by the user: move the other visible devices to the same point. */
+function syncScroll(sourceRig, ratio) {
+  if (!state.syncScroll || state.mode !== 'grid') return;
+  for (const rig of rigs.values()) {
+    if (rig === sourceRig || rig.root.hidden || !rig.view || !rig.url) continue;
+    if (bridge) {
+      if (rig.viewReady) rig.view.executeJavaScript(`window.__bezelScrollTo && window.__bezelScrollTo(${ratio})`).catch(() => {});
+    } else {
+      rig.view.contentWindow?.postMessage({ bezel: 'scrollTo', ratio }, '*');
+    }
+  }
+}
+
+// Web version: pages that include public/sync.js report their scrolling here.
+if (!bridge) {
+  window.addEventListener('message', (e) => {
+    const rig = [...rigs.values()].find((r) => r.view && r.view.contentWindow === e.source);
+    if (!rig) return;
+    if (e.data?.bezel === 'hello') {
+      rig.syncHelper = true;
+      renderToolbar();
+      return;
+    }
+    const ratio = ratioFromMessage(e.data);
+    if (ratio !== null) syncScroll(rig, ratio);
+  });
+}
+
+function toggleSync() {
+  state.syncScroll = !state.syncScroll;
+  persist();
+  renderToolbar();
+}
+
 function renderToolbar() {
   els.input.value = state.url ? displayUrl(state.url) : '';
   els.recent.replaceChildren(...state.recent.map((url) => h('option', { value: displayUrl(url) })));
   els.modeButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.mode === state.mode)));
   els.zoom.value = String(state.zoom);
   els.reload.disabled = !state.url;
+  els.sync.setAttribute('aria-pressed', String(state.syncScroll));
+  const helperSeen = bridge || [...rigs.values()].some((r) => r.syncHelper);
+  els.sync.title = state.syncScroll
+    ? helperSeen
+      ? 'Scrolling is synced across devices (Alt+S to turn off)'
+      : 'Scrolling is synced once your site includes the Bezel sync helper; see the README (Alt+S to turn off)'
+    : 'Sync scrolling across devices (Alt+S)';
 }
 
 /** All-devices view: bring a device into view and highlight it briefly. */
@@ -525,6 +578,7 @@ els.form.addEventListener('submit', (e) => {
 els.input.addEventListener('input', () => els.input.setCustomValidity(''));
 els.reload.addEventListener('click', reloadAll);
 els.rotate.addEventListener('click', rotate);
+els.sync.addEventListener('click', toggleSync);
 els.modeButtons.forEach((btn) => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
 els.zoom.addEventListener('change', () => {
   state.zoom = els.zoom.value === 'fit' ? 'fit' : Number(els.zoom.value);
@@ -578,6 +632,10 @@ function runShortcut(code, shift) {
   if (code === 'KeyR') {
     if (shift) reloadAll();
     else rotate();
+    return true;
+  }
+  if (code === 'KeyS') {
+    toggleSync();
     return true;
   }
   return false;

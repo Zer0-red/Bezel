@@ -1,3 +1,2 @@
-- **Check for updates from the app:** click the version number top left. Bezel shows "Checking…", the download progress and then **Restart to update**. It still checks by itself when it starts and every 4 hours.
-- **No scrollbars on phones and tablets in the web version either:** each device's page now lays out at the device's exact width, like a real phone.
-- Releases are now published by GitHub Actions directly, so installed apps get each update automatically.
+- **Synced scrolling:** scroll one device and the others follow to the same point of the page, so you see each section on every screen at once. Turn it on or off with the new button in the toolbar or `Alt+S`. In the app it works on every site; the web version needs one line in your site (see the README).
+- **Device names stay readable:** the caption under each device shows the full name, with the size and zoom on the line below.

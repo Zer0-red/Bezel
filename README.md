@@ -21,6 +21,7 @@ Bezel is a responsive testing tool for web development. Point it at your local d
 - **Popular screen sizes**: the most-used phone, tablet and desktop sizes worldwide, ranked with their share of browsing from StatCounter, and each one can be added with a click.
 - **Real device frames**: phones with a Dynamic Island, notch, punch-hole camera or home button; tablets; laptops with their keyboard base; monitors on a stand.
 - **Real phone screens**: like Safari and Chrome, phones show a status bar (time, signal, battery) with the island or notch inside it, and your page starts below it. The page gets the same height as on the phone, for example 402 × 812 on an iPhone 17 Pro.
+- **Synced scrolling**: scroll one device and the others follow to the same point of the page, so you see each section on every screen at once. Turn it off with the sync button or `Alt+S`.
 - **All devices or one**: see every device side by side, or open one at full size and switch with the device bar.
 - **Rotate**: switch phones, tablets and monitors between portrait and landscape.
 - **Built for localhost**: type just `3000` and Bezel opens `http://localhost:3000`. If your dev server has hot reload, every device updates when you save.
@@ -39,6 +40,7 @@ Both have the same interface and are built from the same code.
 | Sites it can show | Sites that allow framing (most local projects) | Any site, including Google and client sites |
 | Phones and tablets | Exact screen size | Exact size **plus** mobile user agent, pixel density (2×–3.5×) and touch |
 | Scrollbars | Hidden on phones, tablets and Macs, by clipping them off (see Limitations) | Overlay scrollbars like the real device, on phones, tablets and Macs |
+| Synced scrolling | Needs one line in your site (see [Synced scrolling](#synced-scrolling)) | Works on every site |
 | Keyboard shortcuts | Only when Bezel's toolbar has focus | Also while you're clicking inside a device |
 | Works on | Any computer or phone with a modern browser | Windows 10 and 11 |
 
@@ -114,6 +116,29 @@ Creating a `vX.Y.Z` release on the Releases page (or pushing the tag) also start
 3. Pick a setup from the menu on the left of the device bar, or use **Add device** to choose devices and popular sizes.
 4. Click a device's name in the device bar to jump to it. In **One device** view, the device bar switches devices.
 5. Use the rotate button under a device, or `Alt+R`, to switch between portrait and landscape.
+6. Scroll any device and the others follow. The sync button in the toolbar (or `Alt+S`) turns this on and off.
+
+### Synced scrolling
+
+When you scroll one device, every other device scrolls to the same relative point of the page: halfway down on the phone is halfway down on the laptop. Pages are longer on narrow screens, so this keeps the same section in view on each. Only scrolling you do yourself is shared, so a page that scrolls on its own (an anchor link, a script) doesn't move the others. Syncing works in the all-devices view.
+
+**Windows app:** works on every site, with nothing to add.
+
+**Web version:** browsers don't let one page read or control the scrolling of a page from another site, so your site has to take part. Add this line to it while you develop:
+
+```html
+<script src="https://zer0-red.github.io/Bezel/sync.js" defer></script>
+```
+
+The script does nothing unless the page is shown inside a frame. There it reports how far you've scrolled to Bezel and scrolls when Bezel asks. To keep it out of production, load it only in development. In Next.js, for example, in the root layout:
+
+```tsx
+import Script from 'next/script';
+
+{process.env.NODE_ENV === 'development' && (
+  <Script src="https://zer0-red.github.io/Bezel/sync.js" strategy="afterInteractive" />
+)}
+```
 
 ### Keyboard shortcuts
 
@@ -126,6 +151,7 @@ On the web, shortcuts work while Bezel's own interface has focus (click the tool
 | `Alt+0` or `Esc` | Show all devices |
 | `Alt+R` | Rotate the device on screen (in the all-devices view, all phones and tablets) |
 | `Alt+Shift+R` | Reload all devices |
+| `Alt+S` | Turn synced scrolling on or off |
 
 ## Limitations of the web version
 
@@ -134,6 +160,7 @@ These apply to the web version only; the Windows app doesn't have them.
 - **Sites that block framing won't load.** Many production sites send `X-Frame-Options` or a `frame-ancestors` CSP header. Your local projects usually don't, unless you've added those headers yourself.
 - **Only the viewport size is emulated.** The user agent, pixel density and touch input stay those of your desktop browser.
 - **Scrollbars on Windows.** Browsers draw their normal scrollbar inside another site's frame and a page can't turn it off. To hide it on phones, tablets and Macs, the frame is made one scrollbar wider (about 15 px) and the scrollbar is clipped off, so the page lays out at the device's exact width. Media queries then see that width plus the scrollbar, and a page too short to scroll loses those 15 px on the right. On Macs, where scrollbars overlay, nothing changes. The Windows app has none of this.
+- **Synced scrolling needs a helper script** in your site (see [Synced scrolling](#synced-scrolling)).
 - **Logins on other domains may not persist.** Browsers often withhold cookies from cross-site iframes.
 
 ## Versions
@@ -149,6 +176,8 @@ src/picker.js              Device bar, setups menu and device library
 src/devices.js             Device library, popular sizes (StatCounter) and setups
 src/frames.js              Geometry of each device frame (bezels, notch, stand…)
 src/emulation.js           Mobile user agents and pixel density for the Windows app
+src/sync.js                Synced scrolling: the script the app adds to each device
+public/sync.js             Synced scrolling helper for sites tested in the web version
 src/url.js                 Turns "3000" or "localhost:5173" into a full address
 src/storage.js             Saves settings in localStorage
 src/styles.css             All styles
@@ -160,10 +189,10 @@ scripts/bump-version.mjs   npm run version:bump
 
 ## Roadmap
 
-- [ ] Synced scrolling across all devices
 - [ ] Synced clicks and navigation
 - [ ] Screenshots for each device
 - [ ] Light theme for the app UI
+- [x] Synced scrolling across all devices
 - [x] Save device setups
 - [x] Windows app for sites that block framing
 

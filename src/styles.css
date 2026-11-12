@@ -862,16 +862,21 @@ svg {
   padding: 0 2px;
 }
 
+/* Name on the first line, size and zoom under it, so narrow devices keep their full name. */
 .rig__label {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 1px;
   min-width: 0;
 }
 
+.rig__label .rig__meta {
+  grid-column: 2;
+}
+
 .rig__status {
-  align-self: center;
-  flex: none;
   width: 7px;
   height: 7px;
   border-radius: 50%;
