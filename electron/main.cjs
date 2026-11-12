@@ -112,9 +112,12 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
   const contents = webContents.fromId(Number(id));
   if (!contents || contents.getType() !== 'webview' || contents.hostWebContents !== event.sender) return false;
 
+  const size = (value) => Math.min(8000, Math.max(0, Math.round(Number(value) || 0)));
   const dpr = Math.min(4, Math.max(1, Number(options.dpr) || 1));
-  const width = Math.min(8000, Math.max(0, Math.round(Number(options.width) || 0)));
-  const height = Math.min(8000, Math.max(0, Math.round(Number(options.height) || 0)));
+  const width = size(options.width); // the page's viewport (below a phone's status bar)
+  const height = size(options.height);
+  const screenWidth = size(options.screenWidth) || width; // the whole screen
+  const screenHeight = size(options.screenHeight) || height;
   const mobile = Boolean(options.mobile);
   const touch = Boolean(options.touch);
 
@@ -127,9 +130,11 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
       height,
       deviceScaleFactor: dpr,
       mobile,
-      screenWidth: width,
-      screenHeight: height,
+      screenWidth,
+      screenHeight,
     });
+    // Phones, tablets and Macs use overlay scrollbars that take no space.
+    await contents.debugger.sendCommand('Emulation.setScrollbarsHidden', { hidden: Boolean(options.hideScrollbars) });
     await contents.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
       enabled: touch,
       maxTouchPoints: touch ? 5 : 1,

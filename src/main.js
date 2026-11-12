@@ -109,6 +109,20 @@ function iconButton(icon, label, onClick, extraClass = '') {
 
 // ── Device rigs (frame + caption) ────────────────────────────
 
+// Status bar shown above the page on phones (decorative, like a real phone at 9:41).
+const STATUS_ICONS =
+  '<svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>' +
+  '<svg viewBox="0 0 16 12"><path d="M8 2.3c2.3 0 4.4.9 6 2.4l1.3-1.3C13.4 1.5 10.8.5 8 .5S2.6 1.5.7 3.4L2 4.7c1.6-1.5 3.7-2.4 6-2.4zm0 3.6c1.3 0 2.5.5 3.4 1.4l1.3-1.3C11.5 4.8 9.8 4.1 8 4.1s-3.5.7-4.7 1.9l1.3 1.3c.9-.9 2.1-1.4 3.4-1.4zM8 9.5c.5 0 .9.2 1.2.5L8 11.5 6.8 10c.3-.3.7-.5 1.2-.5z"/></svg>' +
+  '<svg viewBox="0 0 27 12"><rect class="outline" x=".5" y=".5" width="23" height="11" rx="3.2"/><rect x="2" y="2" width="20" height="8" rx="1.8"/><path class="cap" d="M25 4v4c.8-.3 1.4-1.1 1.4-2S25.8 4.3 25 4z"/></svg>';
+
+function statusBarElement(device, g) {
+  const ios = device.ua === 'ios';
+  const bar = h('div', { class: `statusbar ${ios ? 'statusbar--ios' : 'statusbar--android'}`, 'aria-hidden': 'true' });
+  bar.style.setProperty('--cut', `${g.cutout}px`);
+  bar.innerHTML = `<span class="statusbar__time">9:41</span><span></span><span class="statusbar__icons">${STATUS_ICONS}</span>`;
+  return bar;
+}
+
 /** id → { root, frame, device, body, screen, view, url, name, dims, scale, rotateBtn, focusBtn, geomKey } */
 const rigs = new Map();
 
@@ -196,7 +210,14 @@ function createView(rig, device) {
 async function applyEmulation(rig, device) {
   if (!bridge || !rig.emulation || !rig.viewReady) return;
   const g = geometry(device, !!state.rotated[device.id]);
-  await bridge.emulate(rig.view.getWebContentsId(), { ...rig.emulation, width: g.w, height: g.h });
+  // The page gets the screen minus the status bar; screen.width/height stay the full screen.
+  await bridge.emulate(rig.view.getWebContentsId(), {
+    ...rig.emulation,
+    width: g.w,
+    height: g.h - g.statusBar,
+    screenWidth: g.w,
+    screenHeight: g.h,
+  });
 }
 
 function setRigUrl(rig, device, url, { force = false } = {}) {
@@ -227,7 +248,7 @@ function setRigUrl(rig, device, url, { force = false } = {}) {
   } // otherwise the view loads rig.url as soon as it is ready (see createView)
 }
 
-function renderParts(rig, g) {
+function renderParts(rig, g, deviceData) {
   const { device, body, screen } = rig;
   device.dataset.kind = g.kind;
   device.classList.toggle('is-landscape', g.landscape);
@@ -252,6 +273,11 @@ function renderParts(rig, g) {
     borderRadius: g.screen.radius,
   });
   screen.style.setProperty('--min', `${Math.min(g.w, g.h)}px`);
+
+  // Phones: the status bar sits above the page, as in Safari and Chrome.
+  screen.style.setProperty('--sb', `${g.statusBar}px`);
+  screen.querySelector('.statusbar')?.remove();
+  if (g.statusBar) screen.prepend(statusBarElement(deviceData, g));
 
   device.querySelectorAll('.part').forEach((p) => p.remove());
   for (const part of g.parts) {
@@ -301,11 +327,19 @@ function syncRigs() {
   layout();
 }
 
+// In the all-devices view, "Fit" may shrink the row to fit the window's width,
+// but not below this share of each device's height-fitted size (then it scrolls).
+const MIN_ROW_SHRINK = 0.55;
+const CAPTION_MIN_WIDTH = 220; // .rig__caption min-width in styles.css
+
 function layout() {
   const cs = getComputedStyle(els.stage);
   const availW = els.stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   const availH = els.stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - CAPTION_SPACE;
+  const gap = parseFloat(getComputedStyle(els.rack).columnGap) || 0;
 
+  // First pass: geometry and each device's own scale.
+  const shown = [];
   for (const [id, rig] of rigs) {
     if (rig.root.hidden) continue;
     const device = deviceById(id);
@@ -315,7 +349,7 @@ function layout() {
     const key = `${g.kind}:${g.w}x${g.h}`;
     if (key !== rig.geomKey) {
       const resized = rig.geomKey !== '';
-      renderParts(rig, g);
+      renderParts(rig, g, device);
       rig.geomKey = key;
       if (resized) applyEmulation(rig, device); // rotated: tell the emulated phone its new size
     }
@@ -332,8 +366,23 @@ function layout() {
     } else {
       s = Number(state.zoom);
     }
-    s = Math.max(0.05, s);
+    shown.push({ rig, device, g, rotated, s });
+  }
 
+  // Second pass (all devices, Fit): shrink the whole row together so it fits the width.
+  if (state.zoom === 'fit' && state.mode === 'grid' && shown.length) {
+    let factor = 1;
+    for (let i = 0; i < 3; i += 1) {
+      const rowWidth =
+        shown.reduce((sum, d) => sum + Math.max(d.g.outerW * d.s * factor, CAPTION_MIN_WIDTH), 0) + gap * (shown.length - 1);
+      if (rowWidth <= availW) break;
+      factor = Math.max(MIN_ROW_SHRINK, factor * (availW / rowWidth));
+    }
+    for (const d of shown) d.s *= factor;
+  }
+
+  for (const { rig, device, g, rotated, s: scale } of shown) {
+    const s = Math.max(0.05, scale);
     rig.frame.style.width = `${g.outerW * s}px`;
     rig.frame.style.height = `${g.outerH * s}px`;
     rig.device.style.transform = `scale(${s})`;

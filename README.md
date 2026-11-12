@@ -1,6 +1,6 @@
-# Bezel
+<h1 align="center"><img src="docs/logo.png" alt="Bezel" width="520"></h1>
 
-**See your website on every screen at once.**
+<p align="center"><strong>See your website on every screen at once.</strong></p>
 
 **▶ Open Bezel: [zer0-red.github.io/Bezel](https://zer0-red.github.io/Bezel/)**. It runs in your browser, with nothing to install.
 **⬇ Windows app: [download the latest release](https://github.com/Zer0-red/Bezel/releases/latest)**. Every site loads, with real phone emulation, and the app updates itself.
@@ -10,7 +10,7 @@ Bezel is a responsive testing tool for web development. Point it at your local d
 ![Runs in](https://img.shields.io/badge/runs%20in-Chrome%20%7C%20Edge%20%7C%20Firefox%20%7C%20Windows-0078D6)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-![Bezel showing a site on a phone, a tablet and a laptop](docs/screenshot.png)
+![Bezel showing the Pactalex site on an iPhone 17 Pro, an iPad and a MacBook Air](docs/screenshot.png)
 
 ---
 
@@ -20,6 +20,7 @@ Bezel is a responsive testing tool for web development. Point it at your local d
 - **Device library**: current iPhones (including iPhone 18 Pro Max and iPhone Air), Pixel and Galaxy phones, iPads, MacBook Air and Pro 13, 14, 15 and 16, Windows laptops and monitors. Search by name or size, such as `pixel` or `390`.
 - **Popular screen sizes**: the most-used phone, tablet and desktop sizes worldwide, ranked with their share of browsing from StatCounter, and each one can be added with a click.
 - **Real device frames**: phones with a Dynamic Island, notch, punch-hole camera or home button; tablets; laptops with their keyboard base; monitors on a stand.
+- **Real phone screens**: like Safari and Chrome, phones show a status bar (time, signal, battery) with the island or notch inside it, and your page starts below it. The page gets the same height as on the phone, for example 402 × 812 on an iPhone 17 Pro.
 - **All devices or one**: see every device side by side, or open one at full size and switch with the device bar.
 - **Rotate**: switch phones, tablets and monitors between portrait and landscape.
 - **Built for localhost**: type just `3000` and Bezel opens `http://localhost:3000`. If your dev server has hot reload, every device updates when you save.
@@ -37,6 +38,7 @@ Both have the same interface and are built from the same code.
 | Install | Nothing, just open the link | One installer, then it updates itself |
 | Sites it can show | Sites that allow framing (most local projects) | Any site, including Google and client sites |
 | Phones and tablets | Exact screen size | Exact size **plus** mobile user agent, pixel density (2×–3.5×) and touch |
+| Scrollbars | Your computer's (on Windows they take about 15 px inside each device) | Overlay scrollbars like the real device, on phones, tablets and Macs |
 | Keyboard shortcuts | Only when Bezel's toolbar has focus | Also while you're clicking inside a device |
 | Works on | Any computer or phone with a modern browser | Windows 10 and 11 |
 
@@ -54,7 +56,7 @@ In the Windows app (Electron), each device is a real browser view instead of a f
 
 ## Device sizes
 
-Sizes are CSS-pixel viewports: what your media queries see at the device's default display setting. Laptop and monitor sizes are the whole screen; a browser window on them is a little shorter because of the menu bar and the browser's own toolbar. The full list is in [`src/devices.js`](src/devices.js).
+Sizes are CSS-pixel screen sizes: what your media queries see at the device's default display setting. On phones, the page area is that size minus the status bar (Apple's top safe-area inset on iPhones; Android's default 48 dp with a camera cut-out). Laptop and monitor sizes are the whole screen; a browser window on them is a little shorter because of the menu bar and the browser's own toolbar. The full list is in [`src/devices.js`](src/devices.js).
 
 Android phones let users change display size, which changes the viewport. To check your own phone, open a viewport checker in its browser (search for "what is my viewport") and compare it with the size Bezel shows. If it differs, add your phone as a custom size.
 
@@ -133,6 +135,7 @@ These apply to the web version only; the Windows app doesn't have them.
 
 - **Sites that block framing won't load.** Many production sites send `X-Frame-Options` or a `frame-ancestors` CSP header. Your local projects usually don't, unless you've added those headers yourself.
 - **Only the viewport size is emulated.** The user agent, pixel density and touch input stay those of your desktop browser.
+- **Desktop scrollbars.** On Windows the browser draws its normal scrollbar inside each device, which takes about 15 px of the page's width. A page can't remove the scrollbar of another site's frame without changing the width its media queries see, so the web version keeps the width exact.
 - **Logins on other domains may not persist.** Browsers often withhold cookies from cross-site iframes.
 
 ## Versions

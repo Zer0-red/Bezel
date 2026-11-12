@@ -177,5 +177,27 @@ export function geometry(device, rotated = false) {
     body: { x: offX, y: offY, w: bw, h: bh, radius: outerRadius, innerRadius, rim },
     screen: { x: pad.l, y: pad.t, w, h, radius: screenRadius },
     parts,
+    statusBar: statusBarHeight(device, landscape),
+    // Width of the camera cut-out across the status bar (time and icons sit either side).
+    cutout: kind === 'island' ? r(min * 0.3) : kind === 'notch' ? r(min * 0.4) : 0,
   };
+}
+
+const PHONE_FRAMES = ['island', 'notch', 'punch', 'home'];
+
+/**
+ * Height of the phone's status bar, above the page (0 for tablets, laptops, monitors).
+ * iPhones use Apple's top safe-area inset (devices.js `statusBar`); Safari hides the status
+ * bar in landscape. Android phones with a camera cut-out use AOSP's default portrait
+ * status bar (48dp) and 28dp in landscape.
+ */
+export function statusBarHeight(device, landscape) {
+  const kind = frameKind(device);
+  if (!PHONE_FRAMES.includes(kind)) return 0;
+  const ios = device.ua === 'ios';
+  if (landscape) return ios ? 0 : 28;
+  if (device.statusBar) return device.statusBar;
+  if (kind === 'home') return 20;
+  if (kind === 'notch') return 47;
+  return 48;
 }

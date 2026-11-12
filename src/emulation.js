@@ -10,8 +10,14 @@ function androidUa() {
   return `Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome}.0.0.0 Mobile Safari/537.36`;
 }
 
-/** Emulation for a device, or null for laptops and monitors (plain desktop browser). */
+const MAC = IPAD; // Safari on macOS
+
+/** Emulation for a device, or null for other laptops and monitors (plain desktop browser). */
 export function emulationFor(device) {
+  // Apple laptops and iMacs: Retina density, overlay scrollbars and Safari, but no touch.
+  if (device.brand === 'Apple' && (device.category === 'Laptop' || device.category === 'Desktop')) {
+    return { userAgent: MAC, mobile: false, touch: false, hideScrollbars: true, dpr: 2 };
+  }
   const kind = device.ua ?? (device.category === 'Mobile' ? 'android' : device.category === 'Tablet' ? 'ipad' : null);
   if (!kind) return null;
   const userAgent = kind === 'ios' ? IOS : kind === 'ipad' ? IPAD : androidUa();
@@ -19,6 +25,7 @@ export function emulationFor(device) {
     userAgent,
     mobile: kind !== 'ipad', // iPad Safari renders desktop-style pages; phones apply mobile viewport rules
     touch: true,
+    hideScrollbars: true, // phones and tablets use overlay scrollbars that take no space
     dpr: device.dpr ?? (kind === 'ipad' ? 2 : 3),
   };
 }

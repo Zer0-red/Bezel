@@ -4,6 +4,8 @@
 // and tablets): what media queries see at the device's default display setting.
 // `frame` picks the hardware drawn around the screen (see frames.js);
 // `ua` and `dpr` drive mobile emulation in the desktop app (see emulation.js).
+// `statusBar` is the phone's top safe-area inset in portrait (Apple's values); the page
+// starts below it, as in Safari and Chrome (see statusBarHeight in frames.js).
 // Laptop and monitor sizes are the whole screen; a browser window on them is a
 // little shorter (menu bar, tabs and address bar).
 
@@ -11,19 +13,19 @@ export const CATEGORIES = ['Mobile', 'Tablet', 'Laptop', 'Desktop', 'Large scree
 
 export const DEVICES = [
   // ── Apple phones ──
-  { id: 'iphone-18-pro-max', name: 'iPhone 18 Pro Max', brand: 'Apple', category: 'Mobile', year: 2026, width: 440, height: 956, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-18-pro', name: 'iPhone 18 Pro', brand: 'Apple', category: 'Mobile', year: 2026, width: 402, height: 874, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-17-pro-max', name: 'iPhone 17 Pro Max', brand: 'Apple', category: 'Mobile', year: 2025, width: 440, height: 956, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-17-pro', name: 'iPhone 17 Pro', brand: 'Apple', category: 'Mobile', year: 2025, width: 402, height: 874, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-air', name: 'iPhone Air', brand: 'Apple', category: 'Mobile', year: 2025, width: 420, height: 912, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-17', name: 'iPhone 17', brand: 'Apple', category: 'Mobile', year: 2025, width: 402, height: 874, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-16e', name: 'iPhone 16e', brand: 'Apple', category: 'Mobile', year: 2025, width: 390, height: 844, frame: 'notch', ua: 'ios', dpr: 3 },
-  { id: 'iphone-16-plus', name: 'iPhone 16 Plus', brand: 'Apple', category: 'Mobile', year: 2024, width: 430, height: 932, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-16', name: 'iPhone 16', brand: 'Apple', category: 'Mobile', year: 2024, width: 393, height: 852, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-15', name: 'iPhone 15', brand: 'Apple', category: 'Mobile', year: 2023, width: 393, height: 852, frame: 'island', ua: 'ios', dpr: 3 },
-  { id: 'iphone-14', name: 'iPhone 14', brand: 'Apple', category: 'Mobile', year: 2022, width: 390, height: 844, frame: 'notch', ua: 'ios', dpr: 3 },
-  { id: 'iphone-11', name: 'iPhone 11 / XR', brand: 'Apple', category: 'Mobile', year: 2019, width: 414, height: 896, frame: 'notch', ua: 'ios', dpr: 2 },
-  { id: 'iphone-se', name: 'iPhone SE', brand: 'Apple', category: 'Mobile', year: 2022, width: 375, height: 667, frame: 'home', ua: 'ios', dpr: 2 },
+  { id: 'iphone-18-pro-max', name: 'iPhone 18 Pro Max', brand: 'Apple', category: 'Mobile', year: 2026, width: 440, height: 956, frame: 'island', ua: 'ios', dpr: 3, statusBar: 62 },
+  { id: 'iphone-18-pro', name: 'iPhone 18 Pro', brand: 'Apple', category: 'Mobile', year: 2026, width: 402, height: 874, frame: 'island', ua: 'ios', dpr: 3, statusBar: 62 },
+  { id: 'iphone-17-pro-max', name: 'iPhone 17 Pro Max', brand: 'Apple', category: 'Mobile', year: 2025, width: 440, height: 956, frame: 'island', ua: 'ios', dpr: 3, statusBar: 62 },
+  { id: 'iphone-17-pro', name: 'iPhone 17 Pro', brand: 'Apple', category: 'Mobile', year: 2025, width: 402, height: 874, frame: 'island', ua: 'ios', dpr: 3, statusBar: 62 },
+  { id: 'iphone-air', name: 'iPhone Air', brand: 'Apple', category: 'Mobile', year: 2025, width: 420, height: 912, frame: 'island', ua: 'ios', dpr: 3, statusBar: 68 },
+  { id: 'iphone-17', name: 'iPhone 17', brand: 'Apple', category: 'Mobile', year: 2025, width: 402, height: 874, frame: 'island', ua: 'ios', dpr: 3, statusBar: 62 },
+  { id: 'iphone-16e', name: 'iPhone 16e', brand: 'Apple', category: 'Mobile', year: 2025, width: 390, height: 844, frame: 'notch', ua: 'ios', dpr: 3, statusBar: 47 },
+  { id: 'iphone-16-plus', name: 'iPhone 16 Plus', brand: 'Apple', category: 'Mobile', year: 2024, width: 430, height: 932, frame: 'island', ua: 'ios', dpr: 3, statusBar: 59 },
+  { id: 'iphone-16', name: 'iPhone 16', brand: 'Apple', category: 'Mobile', year: 2024, width: 393, height: 852, frame: 'island', ua: 'ios', dpr: 3, statusBar: 59 },
+  { id: 'iphone-15', name: 'iPhone 15', brand: 'Apple', category: 'Mobile', year: 2023, width: 393, height: 852, frame: 'island', ua: 'ios', dpr: 3, statusBar: 59 },
+  { id: 'iphone-14', name: 'iPhone 14', brand: 'Apple', category: 'Mobile', year: 2022, width: 390, height: 844, frame: 'notch', ua: 'ios', dpr: 3, statusBar: 47 },
+  { id: 'iphone-11', name: 'iPhone 11 / XR', brand: 'Apple', category: 'Mobile', year: 2019, width: 414, height: 896, frame: 'notch', ua: 'ios', dpr: 2, statusBar: 48 },
+  { id: 'iphone-se', name: 'iPhone SE', brand: 'Apple', category: 'Mobile', year: 2022, width: 375, height: 667, frame: 'home', ua: 'ios', dpr: 2, statusBar: 20 },
 
   // ── Google phones ──
   { id: 'pixel-10-pro', name: 'Pixel 10 Pro', brand: 'Google', category: 'Mobile', year: 2025, width: 410, height: 914, frame: 'punch', ua: 'android', dpr: 3.125 },
