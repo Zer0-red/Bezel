@@ -98,6 +98,7 @@ import Script from 'next/script';
 npm install
 npm run dev   # browser version
 npm run app   # desktop app
+npm test      # unit tests, the web version in Chrome and the app
 ```
 
 Building, releasing and how the code is organised: [docs/development.md](docs/development.md).

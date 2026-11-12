@@ -8,8 +8,9 @@ name: Release app
 #     vX.Y.Z release and tag itself, with build/release-notes.md.
 #   • Or create a vX.Y.Z release/tag yourself; pushing the tag starts this too.
 #
-# The release stays a draft (invisible to installed apps) until both the
-# Windows and the Linux builds are attached, then it is published.
+# Nothing starts unless the tests pass (tests.yml). The release stays a draft
+# (invisible to installed apps) until both the Windows and the Linux builds are
+# attached, then it is published.
 
 on:
   push:
@@ -24,7 +25,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   prepare:
+    needs: tests
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

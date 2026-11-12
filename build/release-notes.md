@@ -1,2 +1,3 @@
-- **Clicks follow too:** with sync on, open a menu, a tab or an accordion in one device and it opens in the others, even where it's scrolled out of view. Click a link and every device goes to that page, and the address bar shows it. Buttons that send a form only work in the device you clicked, so nothing is sent twice.
-- In the browser version this works with the same sync line in your site as synced scrolling; nothing to change.
+- **Scrolling follows the content:** scroll one device and the others now show the same part of the page, not just the same percentage of it. Where columns stack on phones, the devices used to end up on different sections; now they line up with what's at the top of the device you scroll.
+- **Steadier syncing:** on a busy computer, devices no longer bounce a synced scroll back to the others.
+- Every release is now tested automatically before it goes out.

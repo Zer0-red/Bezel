@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fixture site</title>
+    <!-- A typical landing page for Bezel's tests: a fixed header, a grid that stacks on phones,
+         a menu far down the page, a form, a link to another page and a single-page-app route. -->
+    <style>
+      body { margin: 0; font: 17px/1.5 system-ui, sans-serif; }
+      .bar { position: fixed; inset: 0 0 auto; height: 48px; display: flex; gap: 16px; align-items: center; padding: 0 16px; background: #111; color: #fff; z-index: 2; }
+      .bar a { color: #fff; }
+      main { padding-top: 48px; }
+      section { padding: 40px 20px; }
+      .hero { height: 70vh; background: #246; color: #fff; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+      @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+      .card { background: #eee; padding: 16px; }
+      #menu[hidden] { display: none; }
+      footer { height: 200px; background: #222; }
+    </style>
+    <script src="http://127.0.0.1:4173/sync.js" defer></script>
+  </head>
+  <body>
+    <header class="bar">
+      <a id="about-link" href="/about.html">About page</a>
+      <button id="route" type="button">Route</button>
+    </header>
+    <main>
+      <section class="hero"><h1 id="title">Home</h1></section>
+      <section id="features">
+        <h2>Features</h2>
+        <div class="grid">
+        <article class="card"><h3>Feature 1</h3><p>A short description of this feature, long enough to wrap onto a few lines on a phone. A short description of this feature, long enough to wrap onto a few lines on a phone. </p></article>
+        <article class="card"><h3>Feature 2</h3><p>A short description of this feature, long enough to wrap onto a few lines on a phone. A short description of this feature, long enough to wrap onto a few lines on a phone. </p></article>
+        <article class="card"><h3>Feature 3</h3><p>A short description of this feature, long enough to wrap onto a few lines on a phone. A short description of this feature, long enough to wrap onto a few lines on a phone. </p></article>
+        <article class="card"><h3>Feature 4</h3><p>A short description of this feature, long enough to wrap onto a few lines on a phone. A short description of this feature, long enough to wrap onto a few lines on a phone. </p></article>
+        <article class="card"><h3>Feature 5</h3><p>A short description of this feature, long enough to wrap onto a few lines on a phone. A short description of this feature, long enough to wrap onto a few lines on a phone. </p></article>
+        <article class="card"><h3>Feature 6</h3><p>A short description of this feature, long enough to wrap onto a few lines on a phone. A short description of this feature, long enough to wrap onto a few lines on a phone. </p></article>
+        </div>
+      </section>
+      <section id="about">
+        <h2>About us</h2>
+        <p>We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms. We build websites for small firms.</p>
+      </section>
+      <section id="pricing">
+        <h2>Pricing</h2>
+        <div class="grid">
+        <article class="card"><h3>Plan 1</h3><p>What this plan includes, in a sentence or two.</p><ul><li>One</li><li>Two</li><li>Three</li></ul></article>
+        <article class="card"><h3>Plan 2</h3><p>What this plan includes, in a sentence or two.</p><ul><li>One</li><li>Two</li><li>Three</li></ul></article>
+        <article class="card"><h3>Plan 3</h3><p>What this plan includes, in a sentence or two.</p><ul><li>One</li><li>Two</li><li>Three</li></ul></article>
+        </div>
+      </section>
+      <section id="contact">
+        <h2>Contact</h2>
+        <button type="button" class="toggle" aria-expanded="false"><svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" /></svg> Menu</button>
+        <ul id="menu" hidden><li>One</li><li>Two</li></ul>
+        <form id="form"><input name="q" aria-label="Query" /><button>Send</button></form>
+        <p id="sent">sent 0</p>
+      </section>
+    </main>
+    <footer></footer>
+    <script>
+      let sent = 0;
+      document.getElementById('form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        sent += 1;
+        document.getElementById('sent').textContent = `sent ${sent}`;
+      });
+      document.querySelector('.toggle').addEventListener('click', (e) => {
+        const menu = document.getElementById('menu');
+        menu.hidden = !menu.hidden;
+        e.currentTarget.setAttribute('aria-expanded', String(!menu.hidden));
+      });
+      document.getElementById('route').addEventListener('click', () => {
+        history.pushState({}, '', '/index.html?view=2');
+        document.getElementById('title').textContent = 'Routed';
+      });
+    </script>
+  </body>
+</html>

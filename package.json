@@ -1,6 +1,6 @@
 {
   "name": "bezel",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "See your website on every screen at once — a responsive testing tool for local development, in the browser or as a desktop app for Windows and Linux.",
   "private": true,
   "type": "module",
@@ -13,6 +13,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vite build && npm run test:unit && playwright test",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:web": "vite build && playwright test --project=web",
+    "test:app": "vite build && playwright test --project=app",
     "app": "vite build && electron .",
     "dist:win": "vite build && electron-builder --win --publish never",
     "dist:linux": "vite build && electron-builder --linux --publish never",
@@ -20,6 +24,7 @@
   },
   "devDependencies": {
     "@fontsource-variable/instrument-sans": "^5.3.0",
+    "@playwright/test": "^1.63.0",
     "electron": "^45.3.0",
     "electron-builder": "^26.18.0",
     "vite": "^8.3.8"

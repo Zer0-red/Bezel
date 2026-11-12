@@ -3,8 +3,9 @@
  * Add it to your site while developing:
  *   <script src="https://zer0-red.github.io/Bezel/sync.js" defer></script>
  * It does nothing unless the page is shown inside Bezel (or another page's frame):
- * it tells the parent page how far you've scrolled, which page is open and what you
- * clicked, and scrolls or clicks when asked to. Only what you do yourself is shared.
+ * it tells the parent page what is at the top of the screen as you scroll, which page
+ * is open and what you clicked, and scrolls or clicks when asked to. Only what you do
+ * yourself is shared.
  * Once Bezel answers, a trackpad pinch or Ctrl + wheel on the page zooms Bezel's devices
  * instead of the page, and clicks are replayed in the other devices.
  */
@@ -13,7 +14,7 @@
   window.__bezelSync = true;
 
   let userAt = 0;
-  let applying = false;
+  let applied = null; // where Bezel just moved this page: { top, until }
   let frame = 0;
   let inBezel = false; // set when Bezel answers our hello
   const mark = () => {
@@ -27,9 +28,16 @@
   addEventListener(
     'scroll',
     () => {
-      if (applying || Date.now() - userAt > 1500) return;
+      // Bezel just moved this page here (its scroll event can come late on a busy machine): not passed on.
+      if (applied && Date.now() < applied.until && Math.abs(scrollY - applied.top) < 2) return;
+      if (Date.now() - userAt > 1500) return;
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => parent.postMessage({ bezel: 'scroll', ratio: scrollY / range() }, '*'));
+      frame = requestAnimationFrame(() => {
+        // The content at the top of the screen, so the other devices show the same part of the
+        // page (a percentage alone drifts wherever columns stack on small screens).
+        const ratio = Math.round((scrollY / range()) * 1e5) / 1e5;
+        parent.postMessage({ bezel: 'scroll', ratio, anchors: scrollY > 0 ? anchorsAt() : [] }, '*');
+      });
     },
     { passive: true },
   );
@@ -83,6 +91,49 @@
     }
     return parts.join('>');
   };
+  const find = (path) => {
+    try {
+      return document.querySelector(path);
+    } catch {
+      return null;
+    }
+  };
+  const pinned = (el) => {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      const position = getComputedStyle(n).position;
+      if (position === 'fixed' || position === 'sticky') return true;
+    }
+    return false;
+  };
+  // The element at the top of the screen (under any fixed header) and its block ancestors,
+  // each with how far through it the top edge is.
+  const anchorsAt = () => {
+    const out = [];
+    const top = document
+      .elementsFromPoint(innerWidth / 2, 1)
+      .find((n) => n instanceof HTMLElement && n !== document.body && n !== document.documentElement && !pinned(n));
+    for (let n = top; n && n !== document.body && n !== document.documentElement && out.length < 8; n = n.parentElement) {
+      if (getComputedStyle(n).display.startsWith('inline')) continue; // lines wrap differently per device
+      const r = n.getBoundingClientRect();
+      if (r.height < 1) continue;
+      out.push({ path: pathOf(n), tag: n.tagName, text: textOf(n).slice(0, 40), f: Math.round((-r.top / r.height) * 1e4) / 1e4 });
+    }
+    return out;
+  };
+  const scrollToContent = (d) => {
+    let top = Math.min(1, Math.max(0, Number(d.ratio) || 0)) * range();
+    for (const a of Array.isArray(d.anchors) ? d.anchors : []) {
+      const el = find(a.path);
+      if (!el || el.tagName !== a.tag || (a.text && textOf(el).slice(0, 40) !== a.text) || pinned(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.height < 1) continue; // hidden on this device
+      top = scrollY + r.top + Number(a.f) * r.height;
+      break;
+    }
+    applied = { top: Math.round(Math.min(range(), Math.max(0, top))), until: Date.now() + 1000 };
+    scrollTo({ top, behavior: 'instant' });
+  };
+
   const CLICKABLE =
     'button, summary, label, a, [onclick], [aria-expanded], [aria-controls], [aria-haspopup], ' +
     '[role=button], [role=tab], [role=menuitem], [role=switch], [role=checkbox], [role=radio], [role=option], [role=link]';
@@ -111,12 +162,7 @@
   const replayClick = (d) => {
     if (d.page !== pageOf(location.href)) return; // this device shows another page
     const same = (n) => n instanceof HTMLElement && n.tagName === d.tag && textOf(n) === d.text;
-    let el = null;
-    try {
-      el = document.querySelector(d.path);
-    } catch {
-      el = null;
-    }
+    let el = find(d.path);
     if (!same(el)) {
       const found = [...document.getElementsByTagName(String(d.tag))].filter(same);
       el = found.length === 1 ? found[0] : null; // the layout differs here: only an unmistakable match
@@ -134,13 +180,7 @@
       if (inBezel) replayClick(event.data);
       return;
     }
-    if (event.data.bezel !== 'scrollTo') return;
-    const ratio = Math.min(1, Math.max(0, Number(event.data.ratio) || 0));
-    applying = true;
-    scrollTo({ top: ratio * range(), behavior: 'instant' });
-    setTimeout(() => {
-      applying = false;
-    }, 100);
+    if (event.data.bezel === 'scrollTo') scrollToContent(event.data);
   });
 
   parent.postMessage({ bezel: 'hello', url: location.href }, '*');

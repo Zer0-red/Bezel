@@ -1,0 +1,45 @@
+name: Tests
+
+# Unit tests, the web version in Chrome and the desktop app in Electron (under a virtual display),
+# all against the fixture site in tests/fixtures. The staging test build, the Pages deploy and the
+# app release all run this first, so nothing that fails here reaches anyone.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The web tests use the installed Google Chrome; the app tests need a display.
+      - name: Chrome and a virtual display
+        run: |
+          [ -x /opt/google/chrome/chrome ] || npx playwright install --with-deps chrome
+          command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+
+      - name: Run the tests
+        run: xvfb-run -a npm test
+        env:
+          CI: true
+
+      - name: Keep what the failed tests saw
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_attempt }}
+          path: test-results/
+          retention-days: 7

@@ -1,7 +1,7 @@
 name: Test build
 
-# Builds the Windows installer and the Linux packages from staging so they can
-# be tried before a release. Nothing is published: each is attached to the
+# Runs the tests, then builds the Windows installer and the Linux packages from
+# staging so they can be tried before a release. Nothing is published: each is attached to the
 # workflow run as an artifact (Actions → this run → Artifacts), kept for 14 days.
 
 on:
@@ -17,7 +17,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   windows:
+    needs: tests
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +45,7 @@ jobs:
           if-no-files-found: error
 
   linux:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

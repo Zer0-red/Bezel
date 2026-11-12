@@ -22,6 +22,18 @@ npm run dist:win   # Windows installer → release/ (run on Windows)
 npm run dist:linux # AppImage and .deb → release/ (run on Linux)
 ```
 
+## Tests
+
+```bash
+npm test           # builds, then unit tests, the web version in Chrome and the app in Electron
+npm run test:web   # just the web version
+npm run test:app   # just the app
+```
+
+On Linux without a screen, run them under a virtual display: `xvfb-run -a npm test`. The browser tests open the small site in `tests/fixtures` (a fixed header, a grid that stacks on phones, a menu far down the page, a form, a link and a single-page-app route) and check what Bezel promises: device sizes and emulation, synced scrolling by content, clicks, followed pages, screenshots, and that the app can't open local files. They need Google Chrome installed.
+
+GitHub runs the same tests (`.github/workflows/tests.yml`) before every staging test build, Pages deploy and release; if one fails, nothing is built or published, and the failed tests' traces are attached to the run.
+
 ## Branches and versions
 
 Work happens on `staging`; `main` is what people get. Every push to `main` publishes the web version (the `Deploy to GitHub Pages` workflow, with Pages set to **Source: GitHub Actions**).
@@ -38,7 +50,7 @@ Every push to `staging` builds the app without publishing it (about 5 minutes). 
 2. Merge to `main`.
 3. On GitHub, open **Actions → Release app → Run workflow** on `main`.
 
-The workflow creates the `vX.Y.Z` release as a draft, then builds the installer on Windows and the AppImage and .deb on Linux at the same time. Each attaches its files, plus copies under names that never change for the README's download links (`Bezel-Setup.exe`, `Bezel.AppImage`, `Bezel.deb`). Once both are attached, the release is published and installed apps pick it up by themselves.
+The workflow runs the tests first, then creates the `vX.Y.Z` release as a draft, then builds the installer on Windows and the AppImage and .deb on Linux at the same time. Each attaches its files, plus copies under names that never change for the README's download links (`Bezel-Setup.exe`, `Bezel.AppImage`, `Bezel.deb`). Once both are attached, the release is published and installed apps pick it up by themselves.
 
 ## Linux
 

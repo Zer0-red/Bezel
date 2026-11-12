@@ -14,8 +14,8 @@ import {
   clickFromConsole,
   clickFromMessage,
   pageFromMessage,
-  ratioFromConsole,
-  ratioFromMessage,
+  scrollFromConsole,
+  scrollFromMessage,
   zoomFromConsole,
   zoomFromMessage,
 } from './sync.js';
@@ -268,9 +268,9 @@ function createView(rig, device) {
     if (rig.url && view.getURL() !== 'about:blank') view.executeJavaScript(PAGE_SCRIPT).catch(() => {});
   });
   view.addEventListener('console-message', (e) => {
-    const ratio = ratioFromConsole(e.message);
-    if (ratio !== null) {
-      syncScroll(rig, ratio);
+    const scroll = scrollFromConsole(e.message);
+    if (scroll) {
+      syncScroll(rig, scroll);
       return;
     }
     const click = clickFromConsole(e.message);
@@ -602,15 +602,15 @@ function renderZoom() {
 // changed by Bezel, or by the page itself, and are not passed on.
 const isActive = (rig) => !!rig.view && document.activeElement === rig.view;
 
-/** A device was scrolled by the user: move the other visible devices to the same point. */
-function syncScroll(sourceRig, ratio) {
+/** A device was scrolled by the user ({ ratio, anchors }, see sync.js): the other visible devices show the same content. */
+function syncScroll(sourceRig, scroll) {
   if (!state.syncScroll || state.mode !== 'grid') return;
   for (const rig of rigs.values()) {
     if (rig === sourceRig || rig.root.hidden || !rig.view || !rig.url) continue;
     if (bridge) {
-      if (rig.viewReady) rig.view.executeJavaScript(`window.__bezelScrollTo && window.__bezelScrollTo(${ratio})`).catch(() => {});
+      if (rig.viewReady) rig.view.executeJavaScript(`window.__bezelScrollTo && window.__bezelScrollTo(${JSON.stringify(scroll)})`).catch(() => {});
     } else {
-      rig.view.contentWindow?.postMessage({ bezel: 'scrollTo', ratio }, '*');
+      rig.view.contentWindow?.postMessage({ bezel: 'scrollTo', ...scroll }, '*');
     }
   }
 }
@@ -667,9 +667,9 @@ if (!bridge) {
       syncClick(rig, click);
       return;
     }
-    const ratio = ratioFromMessage(e.data);
-    if (ratio !== null) {
-      syncScroll(rig, ratio);
+    const scroll = scrollFromMessage(e.data);
+    if (scroll) {
+      syncScroll(rig, scroll);
       return;
     }
     const zoom = zoomFromMessage(e.data);
