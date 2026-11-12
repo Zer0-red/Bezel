@@ -1,12 +1,15 @@
-name: Release Windows app
+name: Release app
 
-# Builds the Bezel desktop app on Windows and publishes it to GitHub Releases.
-# Installed copies update themselves from there.
+# Builds the Bezel desktop app for Windows and Linux and publishes it to
+# GitHub Releases. Installed copies update themselves from there.
 #
 # Two ways to release the version in package.json:
-#   • Actions → Release Windows app → Run workflow (on main). The workflow
-#     creates the vX.Y.Z release and tag itself, with build/release-notes.md.
+#   • Actions → Release app → Run workflow (on main). The workflow creates the
+#     vX.Y.Z release and tag itself, with build/release-notes.md.
 #   • Or create a vX.Y.Z release/tag yourself; pushing the tag starts this too.
+#
+# The release stays a draft (invisible to installed apps) until both the
+# Windows and the Linux builds are attached, then it is published.
 
 on:
   push:
@@ -21,21 +24,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  prepare:
+    runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
       - name: Check the version
         id: version
-        shell: bash
         run: |
           version=$(node -p "require('./package.json').version")
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
@@ -55,14 +54,28 @@ jobs:
             fi
           fi
 
-      # Started from the Actions tab: prepare a draft release for this commit.
-      # It stays a draft (invisible to installed apps) until the installer is attached.
+      # A draft release for this commit, which both builds attach their files to.
+      # (A pushed tag may already have a release made by hand; then that one is used.)
       - name: Create draft release
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
         run: |
-          gh release create "${{ steps.version.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft \
-            --target "$GITHUB_SHA" --title "Bezel ${{ steps.version.outputs.tag }}" --notes-file build/release-notes.md
+          tag="${{ steps.version.outputs.tag }}"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft \
+              --target "$GITHUB_SHA" --title "Bezel $tag" --notes-file build/release-notes.md
+          fi
+
+  windows:
+    needs: prepare
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
       - run: npm ci
       - run: npm run build
@@ -75,10 +88,43 @@ jobs:
       - name: Attach Bezel-Setup.exe
         shell: bash
         run: |
-          tag="${{ steps.version.outputs.tag }}"
+          tag="${{ needs.prepare.outputs.tag }}"
           cp "release/Bezel-Setup-${tag#v}.exe" release/Bezel-Setup.exe
           gh release upload "$tag" release/Bezel-Setup.exe --repo "$GITHUB_REPOSITORY" --clobber
 
+  linux:
+    needs: prepare
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Build AppImage and .deb and attach them to the release
+        run: npx electron-builder --linux --publish always
+
+      # Copies under names that never change, for the README's download links:
+      # .../releases/latest/download/Bezel.AppImage and .../Bezel.deb
+      - name: Attach Bezel.AppImage and Bezel.deb
+        run: |
+          tag="${{ needs.prepare.outputs.tag }}"
+          cp "release/Bezel-${tag#v}.AppImage" release/Bezel.AppImage
+          cp "release/bezel_${tag#v}_amd64.deb" release/Bezel.deb
+          gh release upload "$tag" release/Bezel.AppImage release/Bezel.deb --repo "$GITHUB_REPOSITORY" --clobber
+
+  publish:
+    needs: [prepare, windows, linux]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
       - name: Publish the release
-        shell: bash
-        run: gh release edit "${{ steps.version.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+        run: gh release edit "${{ needs.prepare.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest

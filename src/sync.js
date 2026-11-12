@@ -2,7 +2,7 @@
 // relative position (0 = top, 1 = bottom of the page).
 //
 // Each device page runs a tiny script (PAGE_SCRIPT below):
-//   • in the Windows app Bezel injects it into every device view and hears back
+//   • in the desktop app Bezel injects it into every device view and hears back
 //     through console messages (device views have no Node or preload);
 //   • on the web, browsers keep other sites' frames off-limits, so the page has to
 //     include public/sync.js itself (one line in the dev site, see the README);
@@ -16,7 +16,7 @@
 export const CONSOLE_PREFIX = '__bezel:scroll:';
 export const ZOOM_PREFIX = '__bezel:zoom:';
 
-/** Injected into device views by the Windows app. */
+/** Injected into device views by the desktop app. */
 export const PAGE_SCRIPT = `(() => {
   if (window.__bezelSync) return;
   window.__bezelSync = true;

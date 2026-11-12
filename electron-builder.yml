@@ -1,5 +1,5 @@
-# Windows installer for the Bezel desktop app.
-# Built and published by .github/workflows/release-app.yml when a version tag (v*) is pushed.
+# The Bezel desktop app: a Windows installer and Linux packages (AppImage and .deb).
+# Built and published by .github/workflows/release-app.yml.
 
 appId: io.github.zer0red.bezel
 productName: Bezel
@@ -12,6 +12,7 @@ directories:
 files:
   - dist/**
   - electron/**
+  - build/icons/256x256.png   # the window icon on Linux
   - package.json
 
 win:
@@ -27,6 +28,24 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Bezel
   artifactName: Bezel-Setup-${version}.${ext}
+
+linux:
+  icon: build/icons       # 16–512 px, rendered from build/icon.svg
+  executableName: bezel
+  syncDesktopName: true   # bezel.desktop, matching the window's app id (package.json desktopName)
+  category: Development
+  synopsis: See your website on every screen at once
+  description: Shows your site on phones, tablets and laptops side by side while you develop.
+  maintainer: Zer0-red <236132025+Zer0-red@users.noreply.github.com>
+  target:
+    - target: AppImage    # Bezel-x.y.z-x86_64.AppImage: one file, any distribution, updates itself
+      arch: [x64]
+    - target: deb         # bezel_x.y.z_amd64.deb: Ubuntu, Debian, Mint; installs to the app menu
+      arch: [x64]
+
+toolsets:
+  # The static AppImage runtime: runs without libfuse2 (missing on current Ubuntu and Fedora).
+  appimage: "1.0.3"
 
 # The installed app checks this repo's Releases for updates (electron-updater).
 publish:

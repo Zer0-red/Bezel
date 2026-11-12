@@ -1,19 +1,21 @@
 {
   "name": "bezel",
-  "version": "0.2.5",
-  "description": "See your website on every screen at once — a responsive testing tool for local development, in the browser or as a Windows app.",
+  "version": "0.2.6",
+  "description": "See your website on every screen at once — a responsive testing tool for local development, in the browser or as a desktop app for Windows and Linux.",
   "private": true,
   "type": "module",
   "license": "MIT",
   "author": "Zer0-red",
   "homepage": "https://github.com/Zer0-red/Bezel",
   "main": "electron/main.cjs",
+  "desktopName": "bezel.desktop",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "app": "vite build && electron .",
     "dist:win": "vite build && electron-builder --win --publish never",
+    "dist:linux": "vite build && electron-builder --linux --publish never",
     "version:bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {

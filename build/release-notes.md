@@ -1,1 +1,2 @@
-- **Pinch to zoom:** pinch on the trackpad, or hold Ctrl and turn the mouse wheel, to zoom the devices in and out around the pointer, like on a phone. It works on the devices too: the site inside doesn't zoom, Bezel does. The zoom menu shows how far you've gone ("Fit +30%"); pick **Fit** to reset.
+- **Linux:** Bezel now comes for Linux too, as an AppImage (any distribution) and a .deb (Ubuntu, Debian, Mint). Both update themselves like the Windows app; the .deb asks for your password when you click **Install**.
+- **Updates:** if an update can't be installed, the button says so for a moment and then offers **Install** again.

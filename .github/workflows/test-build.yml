@@ -1,8 +1,8 @@
-name: Test build (Windows)
+name: Test build
 
-# Builds the Windows installer from staging so it can be tried before a
-# release. Nothing is published: the installer is attached to the workflow
-# run as an artifact (Actions → this run → Artifacts), kept for 14 days.
+# Builds the Windows installer and the Linux packages from staging so they can
+# be tried before a release. Nothing is published: each is attached to the
+# workflow run as an artifact (Actions → this run → Artifacts), kept for 14 days.
 
 on:
   push:
@@ -37,5 +37,30 @@ jobs:
         with:
           name: Bezel-Setup-test-${{ github.sha }}
           path: release/*.exe
+          retention-days: 14
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Build AppImage and .deb (not published)
+        run: npx electron-builder --linux --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bezel-Linux-test-${{ github.sha }}
+          path: |
+            release/*.AppImage
+            release/*.deb
           retention-days: 14
           if-no-files-found: error

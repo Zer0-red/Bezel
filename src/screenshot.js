@@ -1,7 +1,7 @@
 // Screenshots in the web version. A page can't read what other sites show in
 // its frames, so the browser records this tab instead (Chrome and Edge ask
 // first), cropped to the desk, and one frame is cut to the devices.
-// The Windows app captures its own window directly (electron/main.cjs).
+// The desktop app captures its own window directly (electron/main.cjs).
 
 /** Chrome and Edge can record this tab and crop it to an element (Region Capture). */
 export const canCaptureTab = () => typeof window.CropTarget !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia);

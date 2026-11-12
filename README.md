@@ -5,7 +5,11 @@
 <p align="center"><strong>See your website on every screen at once.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/Zer0-red/Bezel/releases/latest/download/Bezel-Setup.exe"><strong>⬇ Download for Windows</strong></a>
+  <a href="https://github.com/Zer0-red/Bezel/releases/latest/download/Bezel-Setup.exe"><strong>⬇ Windows</strong></a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="https://github.com/Zer0-red/Bezel/releases/latest/download/Bezel.AppImage"><strong>⬇ Linux (AppImage)</strong></a>
+  &nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="https://github.com/Zer0-red/Bezel/releases/latest/download/Bezel.deb"><strong>⬇ Linux (.deb)</strong></a>
   &nbsp;&nbsp;|&nbsp;&nbsp;
   <a href="https://zer0-red.github.io/Bezel/"><strong>Open in your browser</strong></a>
 </p>
@@ -24,11 +28,11 @@ Bezel puts your site on a phone, a tablet and a laptop side by side, drawn like 
 - **Zoom like on a phone.** Pinch on the trackpad, or hold `Ctrl` and turn the mouse wheel.
 - **The little things.** Rotate phones and tablets, open one device full size, star your favorite sites, switch between a dark and a light desk.
 
-## Windows app or browser?
+## App or browser?
 
 Both look and work the same. The app can do more, because a browser tab has limits:
 
-| | Windows app | In the browser |
+| | App (Windows, Linux) | In the browser |
 |---|---|---|
 | Sites it can show | Any site | Sites that allow being shown in a frame (most local projects do) |
 | Phones and tablets | Real behaviour: mobile browser, pixel density and touch support | The right screen size |
@@ -37,7 +41,13 @@ Both look and work the same. The app can do more, because a browser tab has limi
 | Screenshots | One click | Chrome and Edge ask to share the tab first |
 | Updates | Downloads them by itself | Always the latest |
 
-**Installing the app:** run `Bezel-Setup.exe`. The app isn't code-signed yet, so Windows may show "Windows protected your PC" the first time: click **More info**, then **Run anyway**. After that you never need the installer again. When a new version is ready, the button at the top right says **Install**.
+### Installing the app
+
+- **Windows:** run `Bezel-Setup.exe`. The app isn't code-signed yet, so Windows may show "Windows protected your PC" the first time: click **More info**, then **Run anyway**.
+- **Ubuntu, Debian, Mint:** install `Bezel.deb`, for example with `sudo apt install ./Bezel.deb` in the folder you saved it to. Bezel appears in your app menu.
+- **Any other Linux:** `Bezel.AppImage` is the whole app in one file. Make it executable (right-click → Properties → *Allow executing as program*, or `chmod +x Bezel.AppImage`) and open it.
+
+After that you never need to download it again. When a new version is ready, the button at the top right says **Install** (the .deb asks for your password, like any system update).
 
 ## Using it
 
@@ -78,6 +88,7 @@ import Script from 'next/script';
 
 - **A site stays blank in the browser version?** It probably forbids being shown in a frame (`X-Frame-Options` or `frame-ancestors`). Use the app, or allow Bezel's address in your site's headers.
 - **Chrome asks to "access devices on your local network"?** Choose **Allow**. Bezel needs it to show `localhost` from its web address.
+- **On Ubuntu 24.04 or later, use the .deb.** Ubuntu blocks Chromium's sandbox (which keeps the sites you open walled off) for apps without a security profile, so the AppImage runs without it there. The .deb installs that profile.
 - **Sizes** are in CSS pixels, the numbers your media queries see. Phones show a status bar and MacBooks the menu bar beside the camera, and your page starts below it, as on the real thing.
 
 ## Development
@@ -85,7 +96,7 @@ import Script from 'next/script';
 ```bash
 npm install
 npm run dev   # browser version
-npm run app   # Windows app
+npm run app   # desktop app
 ```
 
 Building, releasing and how the code is organised: [docs/development.md](docs/development.md).

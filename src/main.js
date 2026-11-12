@@ -11,7 +11,7 @@ import { normalizeUrl } from './url.js';
 import { emulationFor } from './emulation.js';
 import { PAGE_SCRIPT, ratioFromConsole, ratioFromMessage, zoomFromConsole, zoomFromMessage } from './sync.js';
 
-// In the Windows app (electron/preload.cjs) devices are real browser views
+// In the desktop app (electron/preload.cjs) devices are real browser views
 // instead of iframes, so every site loads and phones get mobile emulation.
 const bridge = window.bezel?.isApp ? window.bezel : null;
 if (bridge) document.documentElement.dataset.app = 'desktop';
@@ -896,7 +896,7 @@ let capturing = false;
 async function takeScreenshot() {
   if (capturing) return;
   if (!captureArea()) return notify('Add a device to take a screenshot.', 'info');
-  if (!bridge && !canCaptureTab()) return notify('Screenshots work in Chrome and Edge, or in the Windows app.', 'info');
+  if (!bridge && !canCaptureTab()) return notify('Screenshots work in Chrome and Edge, or in the desktop app.', 'info');
   capturing = true;
   els.shot.setAttribute('aria-busy', 'true');
   hideToast({ instant: true }); // never in the picture
@@ -966,7 +966,7 @@ function showUpdate({ state: updateState, version, percent, quiet = false } = {}
   const btn = els.updateBtn;
   if (version) btn.dataset.version = version;
   const v = btn.dataset.version ?? '';
-  if (['downloading', 'ready', 'reload'].includes(updateState)) updateLight = 'new';
+  if (['downloading', 'ready', 'install-error', 'reload'].includes(updateState)) updateLight = 'new';
   else if (updateState === 'current') updateLight = 'ok';
   if (quiet && updateState === 'current') updateState = 'idle';
   const idleTitle =
@@ -979,6 +979,7 @@ function showUpdate({ state: updateState, version, percent, quiet = false } = {}
     ready: { icon: 'update', label: `Install ${v}`, title: `Restart Bezel to install version ${v}`, status: `Bezel ${v} is ready to install.` },
     reload: { icon: 'update', label: `Reload for ${v}`, title: `Bezel ${v} is out. Reload the page to use it.`, status: `Bezel ${v} is out.` },
     error: { icon: 'update', label: 'Couldn’t check', title: 'Couldn’t check for updates. Check your connection and try again.', status: 'Couldn’t check for updates.', reset: 6000 },
+    'install-error': { icon: 'update', label: 'Couldn’t install', title: `Bezel couldn’t install version ${v}. Click to try again.`, status: 'Couldn’t install the update.', reset: 6000, next: 'ready' },
     dev: { icon: 'update', label: 'Updates work in the installed app', title: 'Updates work in the installed app.', reset: 5000 },
   };
   const key = views[updateState] ? updateState : 'idle';
@@ -989,14 +990,14 @@ function showUpdate({ state: updateState, version, percent, quiet = false } = {}
   btn.setAttribute('aria-label', view.label || view.title);
   btn.title = view.title;
   if (view.status) els.updateStatus.textContent = view.status;
-  if (view.reset) updateTimer = setTimeout(() => showUpdate({ state: 'idle' }), view.reset);
+  if (view.reset) updateTimer = setTimeout(() => showUpdate({ state: view.next ?? 'idle' }), view.reset);
   btn.dataset.light = updateLight;
   btn.hidden = false;
 }
 
 els.updateBtn.addEventListener('click', () => {
   const current = els.updateBtn.dataset.state;
-  if (current === 'ready') bridge?.installUpdate();
+  if (current === 'ready' || current === 'install-error') bridge?.installUpdate();
   else if (current === 'reload') location.reload();
   else if (['checking', 'downloading'].includes(current)) return;
   else if (bridge) bridge.checkForUpdates();

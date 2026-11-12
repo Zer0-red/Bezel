@@ -1,4 +1,4 @@
-// Bezel desktop app (Windows), main process.
+// Bezel desktop app (Windows and Linux), main process.
 //
 // The window shows the same interface as the web version (dist/). Inside the
 // app each device is a <webview>: a real browser view rather than an iframe,
@@ -6,6 +6,7 @@
 // and phones/tablets can get a mobile user agent, pixel density and touch.
 
 const { app, BrowserWindow, ClipboardItem, clipboard, ipcMain, session, shell, webContents } = require('electron');
+const fs = require('node:fs');
 const path = require('node:path');
 
 const DEV_URL = process.env.BEZEL_DEV_URL; // e.g. http://localhost:5173 with `npm run app:dev`
@@ -35,6 +36,8 @@ function createWindow() {
     backgroundColor: '#1c2027',
     autoHideMenuBar: true,
     show: false,
+    // Windows takes the icon from the .exe; Linux needs it on the window.
+    ...(process.platform === 'linux' && { icon: path.join(__dirname, '..', 'build', 'icons', '256x256.png') }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -179,6 +182,17 @@ ipcMain.handle('bezel:capture', async (event, rect) => {
 
 // ── Updates (GitHub Releases) ────────────────────────────────
 
+/** "deb" (or "rpm"…) when Bezel was installed from a Linux package; null for an AppImage and on Windows. */
+function linuxPackageType() {
+  if (process.platform !== 'linux') return null;
+  try {
+    // electron-builder writes this file into Linux packages; electron-updater reads it too.
+    return fs.readFileSync(path.join(process.resourcesPath, 'package-type'), 'utf8').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 function setUpAutoUpdates() {
   // The lasting state (up to date, downloading, ready) is kept, so a page that loads later can ask for it.
   let status = { state: 'idle' };
@@ -207,9 +221,13 @@ function setUpAutoUpdates() {
   }
 
   autoUpdater.autoDownload = true; // new versions download in the background
-  autoUpdater.autoInstallOnAppQuit = true; // and install when Bezel is closed
+  // and install when Bezel is closed (the Windows installer, or the AppImage replacing itself).
+  // A Linux .deb installs with dpkg, which asks for the password: that only happens when the
+  // user clicks Install, never as a surprise on quit.
+  autoUpdater.autoInstallOnAppQuit = linuxPackageType() == null;
 
   let manual = false; // a check the user asked for reports every step, not only news
+  let installing = false; // the user clicked Install
   let downloaded = null;
 
   autoUpdater.on('checking-for-update', () => manual && send({ state: 'checking' }));
@@ -226,7 +244,13 @@ function setUpAutoUpdates() {
     manual = false;
   });
   autoUpdater.on('error', (error) => {
-    console.error('Update check failed:', error?.message ?? error);
+    console.error('Update failed:', error?.message ?? error);
+    if (installing) {
+      // E.g. the password prompt for a .deb was cancelled. The update stays downloaded, ready to try again.
+      installing = false;
+      send({ state: 'install-error', version: downloaded });
+      return;
+    }
     // A failed background download must not leave the button saying "Downloading".
     const wasDownloading = status.state === 'downloading';
     if (wasDownloading) status = { state: 'idle' };
@@ -235,7 +259,11 @@ function setUpAutoUpdates() {
     manual = false;
   });
 
-  ipcMain.on('bezel:install-update', () => autoUpdater.quitAndInstall());
+  ipcMain.on('bezel:install-update', () => {
+    if (!downloaded) return;
+    installing = true;
+    autoUpdater.quitAndInstall(); // then Bezel restarts on the new version
+  });
   ipcMain.handle('bezel:check-updates', async () => {
     if (downloaded) return send({ state: 'ready', version: downloaded });
     manual = true;
