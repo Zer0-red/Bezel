@@ -15,6 +15,34 @@ export function frameKind(device) {
 // Laptops only make sense in landscape.
 export const canRotate = (device) => frameKind(device) !== 'laptop';
 
+// Laptop designs, front on. Bezels and base are shares of the screen width, from product photos.
+// `housing`: the camera sits in a cut-out at the top of the screen, with the menu bar either side.
+const LAPTOP_MODELS = {
+  // MacBook Air (2022 on): even, thin bezels, camera housing, slim silver base with a finger scoop.
+  air: { finish: 'silver', side: 0.018, top: 0.018, chin: 0.03, housing: true, screenRadius: 0.007, baseWidth: 1.12, baseHeight: 0.017, scoop: 0.12 },
+  // MacBook Pro (2021 on): thinner bezels, a thicker, squarer base on rubber feet, Space Black.
+  pro: { finish: 'space-black', side: 0.015, top: 0.015, chin: 0.027, housing: true, screenRadius: 0.007, baseWidth: 1.1, baseHeight: 0.028, scoop: 0.16, feet: true },
+  // Windows laptops: camera in the bezel above the screen, deeper chin, hinge, flat base on feet.
+  pc: { finish: 'graphite', side: 0.014, top: 0.028, chin: 0.042, baseWidth: 1.08, baseHeight: 0.022, hinge: true, feet: true },
+  // ThinkPad X1 Carbon: matte black, camera in the Communications Bar that rises above the lid.
+  thinkpad: { finish: 'carbon', side: 0.014, top: 0.02, chin: 0.04, commsBar: true, baseWidth: 1.08, baseHeight: 0.02, hinge: true, feet: true },
+  // Surface Laptop: thin bezels, rounded screen corners, slim platinum base without a scoop.
+  surface: { finish: 'silver', side: 0.016, top: 0.026, chin: 0.026, screenRadius: 0.008, baseWidth: 1.1, baseHeight: 0.018 },
+};
+
+/** The laptop design for a device: its own `model`, a MacBook Air for other Apple laptops, else a Windows laptop. */
+export function laptopModel(device) {
+  if (LAPTOP_MODELS[device.model]) return device.model;
+  return device.brand === 'Apple' ? 'air' : 'pc';
+}
+
+/**
+ * Height of a MacBook's menu bar, beside the camera housing. The screen below the housing is
+ * 16:10, so the strip is what's left above it (37 points on a 14-inch MacBook Pro at the default
+ * setting, 1512 × 982). Windows stay below it, and full-screen apps do too by default.
+ */
+const menuBarHeight = (w, h) => Math.max(0, r(h - w / 1.6));
+
 /**
  * Returns the layout of a device frame:
  * - outerW/outerH: full size including buttons, base or stand
@@ -42,6 +70,9 @@ export function geometry(device, rotated = false) {
   let offY = 0;
   let extraW = 0;
   let extraH = 0;
+  let model = null;
+  let finish = null;
+  let menuBar = 0;
 
   if (kind === 'island' || kind === 'punch' || kind === 'notch' || kind === 'home') {
     // ── Phones ──────────────────────────────────────────────
@@ -120,29 +151,68 @@ export function geometry(device, rotated = false) {
     if (!landscape) parts.push({ cls: 'camera', x: (bw - d) / 2, y: (b - d) / 2, w: d, h: d });
     else parts.push({ cls: 'camera', x: (b - d) / 2, y: (bh - d) / 2, w: d, h: d });
   } else if (kind === 'laptop') {
-    // ── Laptops: lid + keyboard base ────────────────────────
-    const side = r(w * 0.012);
-    const top = r(w * 0.022);
-    const bottom = r(w * 0.026);
+    // ── Laptops: lid, hinge, keyboard base ──────────────────
+    model = laptopModel(device);
+    const m = LAPTOP_MODELS[model];
+    finish = device.finish ?? m.finish;
+    const side = r(w * m.side);
+    const top = r(w * m.top);
+    const bottom = r(w * m.chin);
     pad = { t: top, r: side, b: bottom, l: side };
     rim = Math.max(2, r(side * 0.2));
-    const rt = r(w * 0.012);
+    const rt = r(w * (m.commsBar ? 0.006 : 0.012));
     const rb = r(w * 0.004);
     outerRadius = `${rt}px ${rt}px ${rb}px ${rb}px`;
     innerRadius = `${rt - rim}px ${rt - rim}px ${Math.max(0, rb - rim)}px ${Math.max(0, rb - rim)}px`;
-    screenRadius = '0px';
+    const sr = r(w * (m.screenRadius ?? 0));
+    screenRadius = m.housing ? `${sr}px ${sr}px 0 0` : `${sr}px`;
     const bw = w + side * 2;
     const bh = h + top + bottom;
-    const baseW = r(bw * 1.14);
-    const baseH = r(w * 0.024);
+    const baseW = r(bw * m.baseWidth);
+    const baseH = Math.max(6, r(w * m.baseHeight));
+    const hingeH = m.hinge ? Math.max(3, r(w * 0.006)) : 0;
+    const feetH = m.feet ? Math.max(2, r(baseH * 0.32)) : 0;
+    const barH = m.commsBar ? Math.max(4, r(w * 0.011)) : 0; // how far the Communications Bar rises above the lid
     offX = r((baseW - bw) / 2);
+    offY = barH;
     extraW = baseW - bw;
-    extraH = baseH;
-    const d = Math.max(4, r(top * 0.16));
-    parts.push({ cls: 'camera', x: offX + (bw - d) / 2, y: (top - d) / 2, w: d, h: d });
-    parts.push({ cls: 'base', x: 0, y: bh, w: baseW, h: baseH });
-    const nw = r(bw * 0.13);
-    parts.push({ cls: 'notch', x: (baseW - nw) / 2, y: bh, w: nw, h: r(baseH * 0.42) });
+    extraH = barH + hingeH + baseH + feetH;
+    const lidBottom = offY + bh;
+
+    if (m.housing) {
+      // The camera housing hangs into the top of the screen; the menu bar fills the strip beside it.
+      menuBar = menuBarHeight(w, h);
+      const hw = r(menuBar * 4.4); // the same physical size on every MacBook
+      const hx = offX + pad.l + (w - hw) / 2;
+      const d = Math.max(3, r(menuBar * 0.24));
+      parts.push({ cls: 'housing', x: hx, y: offY + pad.t, w: hw, h: menuBar });
+      parts.push({ cls: 'camera', x: hx + (hw - d) / 2, y: offY + pad.t + (menuBar - d) / 2, w: d, h: d });
+    } else if (m.commsBar) {
+      const cw = r(bw * 0.12);
+      parts.push({ cls: 'commsbar', x: offX + (bw - cw) / 2, y: 0, w: cw, h: barH + rim + 1 });
+      const d = Math.max(4, r((barH + top) * 0.2));
+      parts.push({ cls: 'camera', x: offX + (bw - d) / 2, y: (barH + top - d) / 2, w: d, h: d });
+    } else {
+      const d = Math.max(4, r(top * 0.2));
+      parts.push({ cls: 'camera', x: offX + (bw - d) / 2, y: offY + (top - d) / 2, w: d, h: d });
+    }
+
+    if (hingeH) {
+      const hw = r(bw * 0.62);
+      parts.push({ cls: 'hinge', x: (baseW - hw) / 2, y: lidBottom - 1, w: hw, h: hingeH + 2 });
+    }
+    const baseY = lidBottom + hingeH;
+    parts.push({ cls: 'base', x: 0, y: baseY, w: baseW, h: baseH });
+    if (m.scoop) {
+      const sw = r(bw * m.scoop);
+      parts.push({ cls: 'scoop', x: (baseW - sw) / 2, y: baseY, w: sw, h: r(baseH * 0.42) });
+    }
+    if (feetH) {
+      const fw = r(baseW * 0.06);
+      const fy = baseY + baseH - 1;
+      parts.push({ cls: 'pad', x: r(baseW * 0.07), y: fy, w: fw, h: feetH + 1 });
+      parts.push({ cls: 'pad', x: baseW - r(baseW * 0.07) - fw, y: fy, w: fw, h: feetH + 1 });
+    }
   } else {
     // ── Monitors: thin bezel, chin, stand ───────────────────
     const b = Math.max(8, r(max * 0.006));
@@ -169,6 +239,8 @@ export function geometry(device, rotated = false) {
 
   return {
     kind,
+    model, // laptops only: air, pro, pc, thinkpad or surface
+    finish, // laptops only: the colour of the metal
     w,
     h,
     landscape,
@@ -177,16 +249,18 @@ export function geometry(device, rotated = false) {
     body: { x: offX, y: offY, w: bw, h: bh, radius: outerRadius, innerRadius, rim },
     screen: { x: pad.l, y: pad.t, w, h, radius: screenRadius },
     parts,
-    statusBar: statusBarHeight(device, landscape),
+    // The page starts below a phone's status bar or a MacBook's menu bar.
+    statusBar: kind === 'laptop' ? menuBar : statusBarHeight(device, landscape),
     // Width of the camera cut-out across the status bar (time and icons sit either side).
-    cutout: kind === 'island' ? r(min * 0.3) : kind === 'notch' ? r(min * 0.4) : 0,
+    cutout: kind === 'island' ? r(min * 0.3) : kind === 'notch' ? r(min * 0.4) : kind === 'laptop' ? r(menuBar * 4.4) : 0,
   };
 }
 
 const PHONE_FRAMES = ['island', 'notch', 'punch', 'home'];
 
 /**
- * Height of the phone's status bar, above the page (0 for tablets, laptops, monitors).
+ * Height of the phone's status bar, above the page (0 for tablets, laptops, monitors;
+ * MacBooks' menu bar is worked out in geometry).
  * iPhones use Apple's top safe-area inset (devices.js `statusBar`); Safari hides the status
  * bar in landscape. Android phones with a camera cut-out use AOSP's default portrait
  * status bar (48dp) and 28dp in landscape.

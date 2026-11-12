@@ -1,6 +1,6 @@
 {
   "name": "bezel",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "See your website on every screen at once — a responsive testing tool for local development, in the browser or as a Windows app.",
   "private": true,
   "type": "module",

@@ -139,6 +139,21 @@ function statusBarElement(device, g) {
   return bar;
 }
 
+// A MacBook's menu bar beside the camera housing: Safari's menus on the left, wifi, battery and the clock on the right.
+const MENU_ICONS =
+  '<svg viewBox="0 0 16 12"><path d="M8 2.3c2.3 0 4.4.9 6 2.4l1.3-1.3C13.4 1.5 10.8.5 8 .5S2.6 1.5.7 3.4L2 4.7c1.6-1.5 3.7-2.4 6-2.4zm0 3.6c1.3 0 2.5.5 3.4 1.4l1.3-1.3C11.5 4.8 9.8 4.1 8 4.1s-3.5.7-4.7 1.9l1.3 1.3c.9-.9 2.1-1.4 3.4-1.4zM8 9.5c.5 0 .9.2 1.2.5L8 11.5 6.8 10c.3-.3.7-.5 1.2-.5z"/></svg>' +
+  '<svg viewBox="0 0 27 12"><rect class="outline" x=".5" y=".5" width="23" height="11" rx="3.2"/><rect x="2" y="2" width="16" height="8" rx="1.8"/><path class="cap" d="M25 4v4c.8-.3 1.4-1.1 1.4-2S25.8 4.3 25 4z"/></svg>';
+
+function menuBarElement(g) {
+  const bar = h('div', { class: 'statusbar statusbar--mac', 'aria-hidden': 'true' });
+  bar.style.setProperty('--cut', `${g.cutout}px`);
+  const menus = ['File', 'Edit', 'View', 'History', 'Bookmarks', 'Window', 'Help'].map((m) => `<span>${m}</span>`).join('');
+  bar.innerHTML =
+    `<span class="statusbar__menus"><b>Safari</b>${menus}</span><span></span>` +
+    `<span class="statusbar__icons">${MENU_ICONS}<span class="statusbar__time">Thu 9:41</span></span>`;
+  return bar;
+}
+
 /** id → { root, frame, device, body, screen, view, url, name, dims, scale, rotateBtn, focusBtn, geomKey } */
 const rigs = new Map();
 
@@ -299,6 +314,11 @@ function setRigUrl(rig, device, url, { force = false } = {}) {
 function renderParts(rig, g, deviceData) {
   const { device, body, screen } = rig;
   device.dataset.kind = g.kind;
+  // Laptops: which design (MacBook Air, MacBook Pro, Windows laptop…) and the colour of its metal.
+  if (g.model) device.dataset.model = g.model;
+  else delete device.dataset.model;
+  if (g.finish) device.dataset.finish = g.finish;
+  else delete device.dataset.finish;
   device.classList.toggle('is-landscape', g.landscape);
   device.style.width = `${g.outerW}px`;
   device.style.height = `${g.outerH}px`;
@@ -322,10 +342,10 @@ function renderParts(rig, g, deviceData) {
   });
   screen.style.setProperty('--min', `${Math.min(g.w, g.h)}px`);
 
-  // Phones: the status bar sits above the page, as in Safari and Chrome.
+  // Phones: the status bar sits above the page, as in Safari and Chrome. MacBooks: the menu bar.
   screen.style.setProperty('--sb', `${g.statusBar}px`);
   screen.querySelector('.statusbar')?.remove();
-  if (g.statusBar) screen.prepend(statusBarElement(deviceData, g));
+  if (g.statusBar) screen.prepend(g.kind === 'laptop' ? menuBarElement(g) : statusBarElement(deviceData, g));
 
   device.querySelectorAll('.part').forEach((p) => p.remove());
   for (const part of g.parts) {

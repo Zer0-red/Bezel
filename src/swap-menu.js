@@ -13,7 +13,7 @@ const SECTIONS = [
 const SERIES = {
   Mobile: { Apple: 'iPhone', Google: 'Pixel', Samsung: 'Galaxy' },
   Tablet: { Apple: 'iPad' },
-  Laptop: { Apple: 'MacBook', Windows: 'Windows laptops' },
+  Laptop: { Apple: 'MacBook', Lenovo: 'Lenovo', Microsoft: 'Surface', Windows: 'Windows laptops' },
   Desktop: { Apple: 'iMac' },
 };
 

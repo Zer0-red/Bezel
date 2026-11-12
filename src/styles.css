@@ -16,6 +16,15 @@
   --aluminium-lo: #8a8f97;
   --titanium-hi: #6c7078;
   --titanium: #3b3e44;
+  --space-black-hi: #5a5c62; /* MacBook Pro */
+  --space-black: #333438;
+  --space-black-lo: #1c1d20;
+  --graphite-hi: #666a72;    /* Windows laptops */
+  --graphite: #45484f;
+  --graphite-lo: #2c2e33;
+  --carbon-hi: #3b3c40;      /* ThinkPad, matte black */
+  --carbon: #28292c;
+  --carbon-lo: #18191b;
   --glass: #07080a;
 
   /* Interface surfaces (the light theme below swaps these; device hardware stays as is). */
@@ -111,6 +120,7 @@ body {
 body {
   display: grid;
   grid-template-rows: auto auto 1fr;
+  grid-template-columns: minmax(0, 1fr); /* many devices scroll in the device bar instead of widening the page */
   background: var(--desk);
   color: var(--text);
   font-family: var(--font);
@@ -1644,23 +1654,146 @@ svg {
   background: #1c1f24;
 }
 
-/* Laptop: aluminium lid rim, glass front, keyboard base */
-.device[data-kind='laptop'] .device__body {
-  background: linear-gradient(180deg, var(--aluminium-hi), var(--aluminium));
+/* Laptops: metal lid rim, glass front, hinge, keyboard base. The finish is the metal's colour
+   (frames.js: silver MacBook Air and Surface, Space Black MacBook Pro, graphite Windows laptops,
+   matte black ThinkPad); data-model shapes the base. */
+.device[data-kind='laptop'] {
+  --metal-hi: var(--aluminium-hi);
+  --metal: var(--aluminium);
+  --metal-lo: var(--aluminium-lo);
+  --metal-edge: #f0f2f5; /* light along the front edge of the base */
 }
 
+.device[data-finish='space-black'] {
+  --metal-hi: var(--space-black-hi);
+  --metal: var(--space-black);
+  --metal-lo: var(--space-black-lo);
+  --metal-edge: #85888f;
+}
+
+.device[data-finish='graphite'] {
+  --metal-hi: var(--graphite-hi);
+  --metal: var(--graphite);
+  --metal-lo: var(--graphite-lo);
+  --metal-edge: #8a8e96;
+}
+
+.device[data-finish='carbon'] {
+  --metal-hi: var(--carbon-hi);
+  --metal: var(--carbon);
+  --metal-lo: var(--carbon-lo);
+  --metal-edge: #55575c;
+}
+
+.device[data-kind='laptop'] .device__body {
+  background: linear-gradient(180deg, var(--metal-hi), var(--metal));
+}
+
+/* Matte black: hardly any sheen. */
+.device[data-finish='carbon'] .device__body {
+  background: linear-gradient(180deg, var(--metal-hi), var(--metal) 30%);
+}
+
+/* Dark laptops: light catches the lid's edge, so they stand out on the dark desk. */
+.device[data-finish='space-black'] .device__body,
+.device[data-finish='graphite'] .device__body,
+.device[data-finish='carbon'] .device__body,
+.part--commsbar {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+
+/* MacBook Air and Surface: a slim base that curves away underneath. */
 .part--base {
   z-index: 1;
   border-radius: 2px 2px 40% 40% / 2px 2px 100% 100%;
   background:
-    linear-gradient(180deg, #f0f2f5 0%, var(--aluminium-hi) 18%, var(--aluminium) 60%, var(--aluminium-lo) 100%);
+    linear-gradient(180deg, var(--metal-edge) 0%, var(--metal-hi) 18%, var(--metal) 60%, var(--metal-lo) 100%);
   box-shadow: 0 24px 50px -16px var(--hw-shadow);
 }
 
-.part--notch {
+.device[data-model='surface'] .part--base {
+  border-radius: 2px 2px 24% 24% / 2px 2px 70% 70%;
+}
+
+/* MacBook Pro: thicker and squarer, with the seam between the top case and the bottom case. */
+.device[data-model='pro'] .part--base {
+  border-radius: 3px 3px 9% 9% / 3px 3px 38% 38%;
+  background:
+    linear-gradient(180deg, transparent 63%, rgb(0 0 0 / 0.45) 63% 67%, transparent 67%),
+    linear-gradient(180deg, var(--metal-edge) 0%, var(--metal-hi) 9%, var(--metal) 45%, var(--metal-lo) 100%);
+}
+
+/* Windows laptops and ThinkPad: a flat slab. */
+.device[data-model='pc'] .part--base,
+.device[data-model='thinkpad'] .part--base {
+  border-radius: 2px 2px 6px 6px;
+  background:
+    linear-gradient(180deg, transparent 70%, rgb(0 0 0 / 0.35) 70% 74%, transparent 74%),
+    linear-gradient(180deg, var(--metal-edge) 0%, var(--metal-hi) 14%, var(--metal) 55%, var(--metal-lo) 100%);
+}
+
+/* Finger scoop in the front edge, to lift the lid. */
+.part--scoop {
   z-index: 2;
   border-radius: 0 0 999px 999px;
-  background: linear-gradient(180deg, #9ea3ab, #c5c9cf);
+  background: linear-gradient(180deg, var(--metal-lo), var(--metal-hi));
+}
+
+/* MacBooks: the camera housing hangs into the top of the screen. */
+.part--housing {
+  border-radius: 0 0 11px 11px;
+  background: #000;
+}
+
+/* ThinkPad X1 Carbon: the camera's Communications Bar rises above the lid. */
+.part--commsbar {
+  z-index: 0;
+  border-radius: 7px 7px 0 0;
+  background: linear-gradient(180deg, var(--metal-hi), var(--metal));
+}
+
+.part--hinge {
+  z-index: 0;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(180deg, #0b0c0e, #2e3035 55%, #121316);
+}
+
+/* Rubber feet under the base. */
+.part--pad {
+  z-index: 0;
+  border-radius: 0 0 999px 999px;
+  background: #101113;
+}
+
+/* MacBook menu bar beside the camera housing (decorative, like the phones' status bar). */
+.statusbar--mac {
+  grid-template-columns: 1fr var(--cut) 1fr;
+  padding: 0 16px;
+  background: linear-gradient(180deg, #2c3241, #272c38);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.statusbar__menus {
+  display: flex;
+  gap: 20px;
+  overflow: hidden;
+  justify-self: start;
+  padding-left: 4px;
+}
+
+.statusbar__menus b {
+  font-weight: 700;
+}
+
+.statusbar--mac .statusbar__icons {
+  justify-self: end;
+  gap: 16px;
+}
+
+.statusbar--mac svg {
+  height: 11px;
 }
 
 /* Monitor: black front, aluminium stand */

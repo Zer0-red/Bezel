@@ -1,2 +1,5 @@
-- **Update light:** the update button has a small light. Green: Bezel is up to date. Orange: a new version is out (it downloads by itself). When it's ready, the whole button turns orange and says **Install**.
-- **App icon:** the B's phone and screen cutouts are now white.
+- **MacBook Pro looks like a Pro:** Space Black, with a thicker base on rubber feet. The MacBook Air stays silver and slim.
+- **Camera notch on MacBooks:** MacBooks show the camera housing with the menu bar beside it, and your page starts below it, as in Safari. A 14" MacBook Pro page is 1512 × 945.
+- **New laptops:** Lenovo ThinkPad X1 Carbon 14", Lenovo Legion 5i / IdeaPad Pro 16", Surface Laptop 13.8" and Surface Laptop 15". Find them in the device menu under Laptops → Lenovo or Surface, or pick the new *Mac and Windows laptops* setup.
+- **Windows laptops look like Windows laptops:** graphite, camera above the screen, a hinge and a flat base. The ThinkPad gets its camera bar above the lid.
+- Selecting lots of devices no longer pushes the toolbar off the side of the window.

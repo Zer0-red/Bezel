@@ -7,7 +7,9 @@
 // `statusBar` is the phone's top safe-area inset in portrait (Apple's values); the page
 // starts below it, as in Safari and Chrome (see statusBarHeight in frames.js).
 // Laptop and monitor sizes are the whole screen; a browser window on them is a
-// little shorter (menu bar, tabs and address bar).
+// little shorter (tabs and address bar). On MacBooks the page also starts below the
+// menu bar beside the camera housing (see menuBarHeight in frames.js).
+// `model` picks a laptop's design (air, pro, pc, thinkpad, surface; see LAPTOP_MODELS in frames.js).
 
 export const CATEGORIES = ['Mobile', 'Tablet', 'Laptop', 'Desktop', 'Large screen'];
 
@@ -49,12 +51,19 @@ export const DEVICES = [
   { id: 'ipad-pro-13', name: 'iPad Pro 13"', brand: 'Apple', category: 'Tablet', year: 2024, width: 1032, height: 1376, frame: 'tablet', ua: 'ipad', dpr: 2 },
 
   // ── Laptops ──
-  { id: 'macbook-air-13', name: 'MacBook Air 13"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1470, height: 956, frame: 'laptop' },
-  { id: 'macbook-pro-14', name: 'MacBook Pro 14"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1512, height: 982, frame: 'laptop' },
-  { id: 'macbook-air-15', name: 'MacBook Air 15"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1710, height: 1107, frame: 'laptop' },
-  { id: 'macbook-pro-16', name: 'MacBook Pro 16"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1728, height: 1117, frame: 'laptop' },
-  { id: 'laptop-15', name: 'Windows laptop 15.6"', brand: 'Windows', category: 'Laptop', width: 1536, height: 864, frame: 'laptop' },
-  { id: 'laptop-small', name: 'Small laptop', brand: 'Windows', category: 'Laptop', width: 1366, height: 768, frame: 'laptop' },
+  // MacBooks: Apple's default "looks like" size.
+  { id: 'macbook-air-13', name: 'MacBook Air 13"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1470, height: 956, frame: 'laptop', model: 'air' },
+  { id: 'macbook-pro-14', name: 'MacBook Pro 14"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1512, height: 982, frame: 'laptop', model: 'pro' },
+  { id: 'macbook-air-15', name: 'MacBook Air 15"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1710, height: 1107, frame: 'laptop', model: 'air' },
+  { id: 'macbook-pro-16', name: 'MacBook Pro 16"', brand: 'Apple', category: 'Laptop', year: 2025, width: 1728, height: 1117, frame: 'laptop', model: 'pro' },
+  // Windows laptops: the panel divided by Windows' recommended scaling, 150% on these screens
+  // (14" 1920×1200, Surface's 2304×1536 and 2496×1664, 16" 2560×1600) and 125% on 15.6" Full HD.
+  { id: 'thinkpad-x1-carbon', name: 'ThinkPad X1 Carbon 14"', brand: 'Lenovo', category: 'Laptop', year: 2024, width: 1280, height: 800, frame: 'laptop', model: 'thinkpad' },
+  { id: 'legion-16', name: 'Legion 5i / IdeaPad Pro 16"', brand: 'Lenovo', category: 'Laptop', year: 2024, width: 1707, height: 1067, frame: 'laptop', model: 'pc' },
+  { id: 'surface-laptop-13', name: 'Surface Laptop 13.8"', brand: 'Microsoft', category: 'Laptop', year: 2024, width: 1536, height: 1024, frame: 'laptop', model: 'surface' },
+  { id: 'surface-laptop-15', name: 'Surface Laptop 15"', brand: 'Microsoft', category: 'Laptop', year: 2024, width: 1664, height: 1110, frame: 'laptop', model: 'surface' },
+  { id: 'laptop-15', name: 'Windows laptop 15.6"', brand: 'Windows', category: 'Laptop', width: 1536, height: 864, frame: 'laptop', model: 'pc' },
+  { id: 'laptop-small', name: 'Small laptop', brand: 'Windows', category: 'Laptop', width: 1366, height: 768, frame: 'laptop', model: 'pc' },
 
   // ── Monitors ──
   { id: 'full-hd', name: 'Full HD monitor', brand: 'Monitors', category: 'Desktop', width: 1920, height: 1080, frame: 'monitor' },
@@ -150,6 +159,7 @@ export const SETUPS = [
   { id: 'popular', name: 'Most popular sizes', devices: ['size-414x896', 'size-768x1024', 'size-1536x864', 'size-1920x1080'] },
   { id: 'apple', name: 'Apple', devices: ['iphone-17-pro', 'ipad-pro-11', 'macbook-air-13', 'macbook-pro-16'] },
   { id: 'macbooks', name: 'MacBooks', devices: ['macbook-air-13', 'macbook-pro-14', 'macbook-air-15', 'macbook-pro-16'] },
+  { id: 'laptops', name: 'Mac and Windows laptops', devices: ['macbook-air-13', 'macbook-pro-14', 'thinkpad-x1-carbon', 'surface-laptop-13', 'laptop-15'] },
   { id: 'tablets', name: 'Tablets', devices: ['ipad-mini', 'ipad-10', 'ipad-pro-13'] },
 ];
 

@@ -16,7 +16,7 @@ Bezel puts your site on a phone, a tablet and a laptop side by side, drawn like 
 
 ## What it does
 
-- **Real devices.** The latest iPhones, Pixels and Galaxys, iPads, MacBooks, Windows laptops and monitors, each at its real screen size. You can also add the most-used screen sizes or your own.
+- **Real devices.** The latest iPhones, Pixels and Galaxys, iPads, MacBook Air and Pro, ThinkPad, Surface and other Windows laptops, and monitors, each at its real screen size. You can also add the most-used screen sizes or your own.
 - **One-click setups.** *Phone, tablet, laptop*, *Three phones*, *Apple* and more. Save your own.
 - **Swap a device fast.** Click the name under a device and pick another from the menu.
 - **Scroll once, see it everywhere.** Scroll one device and the others follow to the same spot.
@@ -75,7 +75,7 @@ import Script from 'next/script';
 
 - **A site stays blank in the browser version?** It probably forbids being shown in a frame (`X-Frame-Options` or `frame-ancestors`). Use the app, or allow Bezel's address in your site's headers.
 - **Chrome asks to "access devices on your local network"?** Choose **Allow**. Bezel needs it to show `localhost` from its web address.
-- **Sizes** are in CSS pixels, the numbers your media queries see. Phones show a status bar, and your page starts below it, as on a real phone.
+- **Sizes** are in CSS pixels, the numbers your media queries see. Phones show a status bar and MacBooks the menu bar beside the camera, and your page starts below it, as on the real thing.
 
 ## Development
 

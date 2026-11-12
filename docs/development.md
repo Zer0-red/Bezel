@@ -61,4 +61,4 @@ build/icon.svg             The app icon (build/icon.png is rendered from it)
 
 ## Device sizes
 
-Sizes are CSS pixels at each device's default display setting, the numbers your media queries see. On phones the page is that size minus the status bar. Popular sizes come from [StatCounter](https://gs.statcounter.com/screen-resolution-stats); refresh them by editing the `POPULAR` lists in `src/devices.js`.
+Sizes are CSS pixels at each device's default display setting, the numbers your media queries see. On phones the page is that size minus the status bar, and on MacBooks minus the menu bar beside the camera housing (the screen below it is 16:10). Windows laptops use the panel divided by Windows' recommended scaling. Popular sizes come from [StatCounter](https://gs.statcounter.com/screen-resolution-stats); refresh them by editing the `POPULAR` lists in `src/devices.js`.
