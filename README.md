@@ -38,7 +38,7 @@ Both have the same interface and are built from the same code.
 | Install | Nothing, just open the link | One installer, then it updates itself |
 | Sites it can show | Sites that allow framing (most local projects) | Any site, including Google and client sites |
 | Phones and tablets | Exact screen size | Exact size **plus** mobile user agent, pixel density (2×–3.5×) and touch |
-| Scrollbars | Your computer's (on Windows they take about 15 px inside each device) | Overlay scrollbars like the real device, on phones, tablets and Macs |
+| Scrollbars | Hidden on phones, tablets and Macs, by clipping them off (see Limitations) | Overlay scrollbars like the real device, on phones, tablets and Macs |
 | Keyboard shortcuts | Only when Bezel's toolbar has focus | Also while you're clicking inside a device |
 | Works on | Any computer or phone with a modern browser | Windows 10 and 11 |
 
@@ -46,7 +46,7 @@ Both have the same interface and are built from the same code.
 
 1. Download `Bezel-Setup-x.y.z.exe` from [Releases](https://github.com/Zer0-red/Bezel/releases/latest) and run it.
 2. Because the app isn't code-signed, Windows shows "Windows protected your PC" the first time. Click **More info**, then **Run anyway**.
-3. That's it. Bezel checks for updates when it starts and every few hours. When a new version has downloaded, it offers **Restart to update**. If you just close Bezel, the update installs then.
+3. That's it. You only download the installer once: Bezel updates itself. It checks when it starts and every few hours, downloads new versions in the background and offers **Restart to update** (or installs when you close it). To check right away, click the version number next to the name, top left.
 
 ## How it works
 
@@ -101,13 +101,11 @@ A test build installs like the real app. It looks for updates on the Releases pa
 
 ### Releasing the Windows app
 
-1. Bump the version: `npm run version:bump` (adds 0.0.1, see *Versions* below).
-2. Merge to `main`, then tag that commit with the same version:
-   ```bash
-   git tag v0.1.2
-   git push origin v0.1.2
-   ```
-3. The `Release Windows app` workflow builds the installer on a Windows machine in GitHub's cloud and publishes it to Releases. Installed copies pick it up automatically.
+1. Bump the version (`npm run version:bump`, adds 0.0.1, see *Versions* below) and write what changed in `build/release-notes.md`.
+2. Merge to `main`.
+3. On GitHub, open **Actions → Release Windows app → Run workflow** (branch `main`). It creates the `vX.Y.Z` release and tag, builds the installer on a Windows machine in GitHub's cloud, attaches it and publishes the release. Installed copies pick it up automatically.
+
+Creating a `vX.Y.Z` release on the Releases page (or pushing the tag) also starts the same workflow.
 
 ## Usage
 
@@ -135,7 +133,7 @@ These apply to the web version only; the Windows app doesn't have them.
 
 - **Sites that block framing won't load.** Many production sites send `X-Frame-Options` or a `frame-ancestors` CSP header. Your local projects usually don't, unless you've added those headers yourself.
 - **Only the viewport size is emulated.** The user agent, pixel density and touch input stay those of your desktop browser.
-- **Desktop scrollbars.** On Windows the browser draws its normal scrollbar inside each device, which takes about 15 px of the page's width. A page can't remove the scrollbar of another site's frame without changing the width its media queries see, so the web version keeps the width exact.
+- **Scrollbars on Windows.** Browsers draw their normal scrollbar inside another site's frame and a page can't turn it off. To hide it on phones, tablets and Macs, the frame is made one scrollbar wider (about 15 px) and the scrollbar is clipped off, so the page lays out at the device's exact width. Media queries then see that width plus the scrollbar, and a page too short to scroll loses those 15 px on the right. On Macs, where scrollbars overlay, nothing changes. The Windows app has none of this.
 - **Logins on other domains may not persist.** Browsers often withhold cookies from cross-site iframes.
 
 ## Versions

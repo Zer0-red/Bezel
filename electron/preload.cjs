@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('bezel', {
   /** A downloaded update is ready: { state: 'ready', version }. */
   onUpdate: (callback) => ipcRenderer.on('bezel:update', (_event, data) => callback(data)),
   installUpdate: () => ipcRenderer.send('bezel:install-update'),
+  checkForUpdates: () => ipcRenderer.invoke('bezel:check-updates'),
 });

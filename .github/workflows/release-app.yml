@@ -1,21 +1,30 @@
 name: Release Windows app
 
-# Builds the Bezel desktop app on Windows and publishes the installer to
-# GitHub Releases. Installed copies update themselves from there.
+# Builds the Bezel desktop app on Windows and publishes it to GitHub Releases.
+# Installed copies update themselves from there.
 #
-# To release: set "version" in package.json (e.g. 0.3.0), commit to main,
-# then push a matching tag:  git tag v0.3.0 && git push origin v0.3.0
+# Two ways to release the version in package.json:
+#   • Actions → Release Windows app → Run workflow (on main). The workflow
+#     creates the vX.Y.Z release and tag itself, with build/release-notes.md.
+#   • Or create a vX.Y.Z release/tag yourself; pushing the tag starts this too.
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-app
+  cancel-in-progress: false
+
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,19 +33,43 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Check the tag matches package.json
+      - name: Check the version
+        id: version
         shell: bash
         run: |
           version=$(node -p "require('./package.json').version")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
-            exit 1
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+              exit 1
+            fi
+          else
+            if [ "$GITHUB_REF_NAME" != "main" ]; then
+              echo "::error::Run releases from main (this run is on $GITHUB_REF_NAME)."
+              exit 1
+            fi
+            if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "::error::v$version is already released. Bump the version (npm run version:bump) first."
+              exit 1
+            fi
           fi
+
+      # Started from the Actions tab: prepare a draft release for this commit.
+      # It stays a draft (invisible to installed apps) until the installer is attached.
+      - name: Create draft release
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft \
+            --target "$GITHUB_SHA" --title "Bezel ${{ steps.version.outputs.tag }}" --notes-file build/release-notes.md
 
       - run: npm ci
       - run: npm run build
 
-      - name: Build installer and publish release
+      - name: Build installer and attach it to the release
         run: npx electron-builder --win --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the release
+        shell: bash
+        run: gh release edit "${{ steps.version.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest

@@ -68,6 +68,7 @@ const els = {
   stage: $('#stage'),
   rack: $('#rack'),
   empty: $('#stage-empty'),
+  version: $('#app-version'),
   update: $('#update-toast'),
   updateText: $('#update-text'),
   updateRestart: $('#update-restart'),
@@ -166,10 +167,24 @@ function setScreenMessage(rig, text) {
 }
 
 /** The web page inside a device: an iframe on the web, a real browser view in the app. */
+// Width of this computer's classic scrollbars (0 where scrollbars overlay, as on Macs).
+const SCROLLBAR_WIDTH = (() => {
+  const probe = h('div', { style: 'position:absolute;top:-9999px;width:100px;height:100px;overflow:scroll' });
+  document.body.append(probe);
+  const width = probe.offsetWidth - probe.clientWidth;
+  probe.remove();
+  return width;
+})();
+document.documentElement.style.setProperty('--scrollbar-w', `${SCROLLBAR_WIDTH}px`);
+
 function createView(rig, device) {
   if (!bridge) {
     const frame = h('iframe', { title: `${device.name} preview`, allow: 'fullscreen; clipboard-write' });
     frame.addEventListener('load', () => rig.root.classList.remove('is-loading'));
+    // Phones, tablets and Macs have overlay scrollbars. On the web, a desktop scrollbar
+    // inside the frame can't be removed, so the frame is made one scrollbar wider and the
+    // scrollbar is clipped off: the page lays out at the device's exact width.
+    if (SCROLLBAR_WIDTH && emulationFor(device)?.hideScrollbars) rig.screen.classList.add('hide-scrollbar');
     return frame;
   }
 
@@ -577,14 +592,32 @@ if (bridge) {
   // The brand link would reload the app's file; it stays put instead.
   document.querySelector('.brand')?.addEventListener('click', (e) => e.preventDefault());
 
-  // A downloaded update: offer a restart (it also installs when Bezel is closed).
-  bridge.onUpdate(({ state: updateState, version }) => {
-    if (updateState !== 'ready') return;
-    els.updateText.textContent = `Bezel ${version} is ready.`;
+  // Updates: the app checks by itself; the version number checks on demand.
+  let hideTimer = 0;
+  function showUpdate({ state: updateState, version, percent }) {
+    clearTimeout(hideTimer);
+    const ready = updateState === 'ready';
+    const messages = {
+      checking: 'Checking for updates…',
+      current: `Bezel is up to date (v${version ?? __APP_VERSION__}).`,
+      downloading: `Downloading Bezel ${version ?? 'update'}… ${percent ?? 0}%`,
+      ready: `Bezel ${version} is ready.`,
+      error: 'Couldn’t check for updates. Check your connection and try again.',
+      dev: 'Updates work in the installed app.',
+    };
+    els.updateText.textContent = messages[updateState] ?? '';
+    els.updateLater.hidden = !ready;
+    els.updateRestart.hidden = !ready;
     els.update.hidden = false;
-  });
+    if (['current', 'error', 'dev'].includes(updateState)) hideTimer = setTimeout(() => (els.update.hidden = true), 5000);
+  }
+  bridge.onUpdate(showUpdate);
   els.updateRestart.addEventListener('click', () => bridge.installUpdate());
   els.updateLater.addEventListener('click', () => (els.update.hidden = true));
+
+  els.version.disabled = false;
+  els.version.title = 'Check for updates';
+  els.version.addEventListener('click', () => bridge.checkForUpdates());
 }
 
 let frameRequest = 0;

@@ -153,24 +153,53 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
 // ── Updates (GitHub Releases) ────────────────────────────────
 
 function setUpAutoUpdates() {
-  if (!app.isPackaged) return;
+  const send = (data) => mainWindow?.webContents.send('bezel:update', data);
+
+  // Running from source (npm run app): there is nothing to update.
+  if (!app.isPackaged) {
+    ipcMain.handle('bezel:check-updates', () => send({ state: 'dev' }));
+    return;
+  }
+
   let autoUpdater;
   try {
     ({ autoUpdater } = require('electron-updater'));
   } catch (error) {
     console.error('Updater unavailable:', error);
+    ipcMain.handle('bezel:check-updates', () => send({ state: 'error' }));
     return;
   }
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true; // also installs when Bezel is simply closed
+  autoUpdater.autoDownload = true; // new versions download in the background
+  autoUpdater.autoInstallOnAppQuit = true; // and install when Bezel is closed
 
-  autoUpdater.on('update-downloaded', (info) => {
-    mainWindow?.webContents.send('bezel:update', { state: 'ready', version: info.version });
+  let manual = false; // a check the user asked for reports every step, not only news
+  let downloaded = null;
+
+  autoUpdater.on('checking-for-update', () => manual && send({ state: 'checking' }));
+  autoUpdater.on('update-available', (info) => send({ state: 'downloading', version: info.version, percent: 0 }));
+  autoUpdater.on('download-progress', (progress) => send({ state: 'downloading', percent: Math.round(progress.percent) }));
+  autoUpdater.on('update-not-available', () => {
+    if (manual) send({ state: 'current', version: app.getVersion() });
+    manual = false;
   });
-  autoUpdater.on('error', (error) => console.error('Update check failed:', error?.message ?? error));
+  autoUpdater.on('update-downloaded', (info) => {
+    downloaded = info.version;
+    send({ state: 'ready', version: info.version });
+    manual = false;
+  });
+  autoUpdater.on('error', (error) => {
+    console.error('Update check failed:', error?.message ?? error);
+    if (manual) send({ state: 'error' });
+    manual = false;
+  });
 
   ipcMain.on('bezel:install-update', () => autoUpdater.quitAndInstall());
+  ipcMain.handle('bezel:check-updates', async () => {
+    if (downloaded) return send({ state: 'ready', version: downloaded });
+    manual = true;
+    await autoUpdater.checkForUpdates().catch(() => {});
+  });
 
   const check = () => autoUpdater.checkForUpdates().catch(() => {});
   check();

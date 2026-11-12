@@ -1,0 +1,3 @@
+- **Check for updates from the app:** click the version number top left. Bezel shows "Checking…", the download progress and then **Restart to update**. It still checks by itself when it starts and every 4 hours.
+- **No scrollbars on phones and tablets in the web version either:** each device's page now lays out at the device's exact width, like a real phone.
+- Releases are now published by GitHub Actions directly, so installed apps get each update automatically.
