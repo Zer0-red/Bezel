@@ -1,1 +1,6 @@
-- **Screenshot button:** the camera next to the address bar (or `Alt+C`) copies a picture of the devices, with their names, to the clipboard, and a small "Copied to clipboard" note confirms it. Paste it anywhere. In the web version, Chrome and Edge ask to share the tab first.
+- **New app icon:** a plain B with a tablet inside, without the cream square around it.
+- **Reload in the address bar:** the reload arrow now sits at the start of the address bar, like in a browser.
+- **Clearer update button:** it shows the circled up-arrow browsers use for updates.
+- **A cursor you can see:** phones and tablets keep your normal mouse pointer instead of Chrome's faint grey touch circle. Sites still see a touch screen; scroll with the wheel or trackpad.
+- **Device names centred** under each device, with the size and buttons below.
+- **Shorter README** with the download link at the top.

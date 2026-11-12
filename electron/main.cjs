@@ -140,10 +140,9 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
       enabled: touch,
       maxTouchPoints: touch ? 5 : 1,
     });
-    await contents.debugger.sendCommand('Emulation.setEmitTouchEventsForMouse', {
-      enabled: touch,
-      configuration: 'mobile',
-    });
+    // The mouse stays a mouse. Turning it into touches makes Chrome draw its pointer as a faint
+    // grey circle that disappears on dark sites. Pages still see a touch screen (above).
+    await contents.debugger.sendCommand('Emulation.setEmitTouchEventsForMouse', { enabled: false });
     return true;
   } catch (error) {
     console.error('Emulation failed:', error);

@@ -29,10 +29,9 @@
       <form class="address" id="address-form" autocomplete="off">
         <label class="visually-hidden" for="address-input">Website address</label>
         <div class="address__field">
-          <svg class="address__icon" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
-          </svg>
+          <button class="address__reload" id="reload-btn" type="button" aria-label="Reload all devices" title="Reload all devices (Alt+Shift+R)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></svg>
+          </button>
           <input
             id="address-input"
             class="address__input"
@@ -57,9 +56,6 @@
       <div class="controls">
         <button class="icon-btn" id="shot-btn" type="button" aria-label="Copy a screenshot of the devices" title="Copy a screenshot of the devices (Alt+C)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5A1.5 1.5 0 0 1 5 7h2.4l1.5-2.2h6.2L16.6 7H19a1.5 1.5 0 0 1 1.5 1.5v9.5A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18z" /><circle cx="12" cy="13" r="3.6" /></svg>
-        </button>
-        <button class="icon-btn" id="reload-btn" type="button" aria-label="Reload all devices" title="Reload all devices (Alt+Shift+R)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></svg>
         </button>
         <button class="icon-btn" id="sync-btn" type="button" aria-label="Sync scrolling" title="Sync scrolling (Alt+S)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3.5" width="7.5" height="17" rx="2" /><rect x="13.5" y="3.5" width="7.5" height="17" rx="2" /><path d="M6.75 15V9M4.75 11l2-2 2 2M17.25 15V9M15.25 11l2-2 2 2" /></svg>

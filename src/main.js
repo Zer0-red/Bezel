@@ -21,7 +21,7 @@ document.querySelector('#app-version').textContent = `v${__APP_VERSION__}`;
 
 // ── State ────────────────────────────────────────────────────
 
-const CAPTION_SPACE = 68; // room under each device for its caption
+const CAPTION_SPACE = 72; // room under each device for its caption (two centred lines)
 const MAX_RECENT = 8;
 
 const defaults = {
@@ -177,8 +177,8 @@ function createRig(device) {
   const caption = h(
     'figcaption',
     { class: 'rig__caption' },
-    h('div', { class: 'rig__label' }, status, name, h('span', { class: 'rig__meta' }, dims, scale)),
-    h('div', { class: 'rig__actions' }, rotateBtn, focusBtn),
+    h('div', { class: 'rig__title' }, status, name),
+    h('div', { class: 'rig__info' }, h('span', { class: 'rig__meta' }, dims, scale), h('div', { class: 'rig__actions' }, rotateBtn, focusBtn)),
   );
 
   const root = h('figure', { class: 'rig', 'data-id': device.id }, frame, caption);
@@ -545,6 +545,9 @@ function openUrl(raw) {
 
 function reloadAll() {
   if (!state.url) return;
+  els.reload.classList.remove('is-turning');
+  void els.reload.offsetWidth; // restart the turn
+  els.reload.classList.add('is-turning');
   for (const [id, rig] of rigs) setRigUrl(rig, deviceById(id), state.url, { force: true });
 }
 
@@ -798,10 +801,9 @@ function toggleTheme() {
 // ── Updates (button at the end of the toolbar) ───────────────
 
 const UPDATE_ICONS = {
-  download: '<svg viewBox="0 0 24 24"><path d="M12 4v10.5M7.5 10 12 14.5 16.5 10M5 19.5h14"/></svg>',
+  update: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.75"/><path d="M12 16.25V8M8.25 11.5 12 7.75l3.75 3.75"/></svg>', // the "update" arrow browsers use
   spinner: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-8-8"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
-  reload: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>',
 };
 
 let updateTimer = 0;
@@ -813,14 +815,14 @@ function showUpdate({ state: updateState, version, percent } = {}) {
   if (version) btn.dataset.version = version;
   const v = btn.dataset.version ?? '';
   const views = {
-    idle: { icon: 'download', label: '', title: 'Check for updates' },
+    idle: { icon: 'update', label: '', title: 'Check for updates' },
     checking: { icon: 'spinner', label: '', title: 'Checking for updates…', status: 'Checking for updates…' },
     current: { icon: 'check', label: 'Up to date', title: `Bezel ${__APP_VERSION__} is the latest version.`, status: 'Bezel is up to date.', reset: 4000 },
-    downloading: { icon: 'download', label: `Downloading ${v} (${percent ?? 0}%)`, title: `Bezel ${v} is downloading. You can keep working.` },
-    ready: { icon: 'download', label: `Install ${v}`, title: `Restart Bezel to install version ${v}`, status: `Bezel ${v} is ready to install.` },
-    reload: { icon: 'reload', label: `Reload for ${v}`, title: `Bezel ${v} is out. Reload the page to use it.`, status: `Bezel ${v} is out.` },
-    error: { icon: 'download', label: 'Couldn’t check', title: 'Couldn’t check for updates. Check your connection and try again.', status: 'Couldn’t check for updates.', reset: 6000 },
-    dev: { icon: 'download', label: 'Updates work in the installed app', title: 'Updates work in the installed app.', reset: 5000 },
+    downloading: { icon: 'update', label: `Downloading ${v} (${percent ?? 0}%)`, title: `Bezel ${v} is downloading. You can keep working.` },
+    ready: { icon: 'update', label: `Install ${v}`, title: `Restart Bezel to install version ${v}`, status: `Bezel ${v} is ready to install.` },
+    reload: { icon: 'update', label: `Reload for ${v}`, title: `Bezel ${v} is out. Reload the page to use it.`, status: `Bezel ${v} is out.` },
+    error: { icon: 'update', label: 'Couldn’t check', title: 'Couldn’t check for updates. Check your connection and try again.', status: 'Couldn’t check for updates.', reset: 6000 },
+    dev: { icon: 'update', label: 'Updates work in the installed app', title: 'Updates work in the installed app.', reset: 5000 },
   };
   const key = views[updateState] ? updateState : 'idle';
   const view = views[key];

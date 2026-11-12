@@ -230,22 +230,49 @@ svg {
   min-width: 0;
 }
 
-.address__icon {
+/* Reload, at the start of the address field like in a browser. */
+.address__reload {
   position: absolute;
-  left: 11px;
+  left: 4px;
   top: 50%;
-  width: 16px;
-  height: 16px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   translate: 0 -50%;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-s);
   color: var(--muted);
-  pointer-events: none;
+}
+
+.address__reload svg {
+  width: 17px;
+  height: 17px;
+}
+
+.address__reload:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.address__reload:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* A short turn when clicked, so it's clear the devices reloaded. */
+.address__reload.is-turning svg {
+  animation: spin 0.5s ease-out;
 }
 
 .address__input {
   flex: 1;
   min-width: 0;
   height: 36px;
-  padding: 0 40px 0 34px; /* room for the globe and the star */
+  padding: 0 40px 0 38px; /* room for reload and the star */
   background: var(--field);
   border: 1px solid var(--line);
   border-right: 0;
@@ -1294,31 +1321,40 @@ svg {
 
 .rig__caption {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 2px;
   width: max(var(--frame-w, 200px), 220px);
   max-width: 100%;
   min-width: 220px;
-  margin-top: 22px;
+  margin-top: 20px;
   padding: 0 2px;
 }
 
-/* Name on the first line, size and zoom under it, so narrow devices keep their full name. */
-.rig__label {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+/* Centred under the device: the name first, then size, zoom and the device's own buttons. */
+.rig__title {
+  display: flex;
   align-items: center;
-  column-gap: 8px;
-  row-gap: 1px;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
   min-width: 0;
 }
 
-.rig__label .rig__meta {
-  grid-column: 2;
+.rig__info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.rig__actions .icon-btn--small {
+  width: 26px;
+  height: 26px;
 }
 
 .rig__status {
+  flex: none;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -1334,7 +1370,6 @@ svg {
 .rig__name {
   display: inline-flex;
   align-items: center;
-  justify-self: start;
   gap: 3px;
   min-width: 0;
   max-width: 100%;
@@ -1823,6 +1858,10 @@ body[data-mode='focus'] .rack {
 
   .toast {
     transition: none;
+  }
+
+  .address__reload.is-turning svg {
+    animation: none;
   }
 
   .rig.is-loading .rig__status {

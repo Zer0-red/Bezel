@@ -70,6 +70,15 @@ jobs:
       - name: Build installer and attach it to the release
         run: npx electron-builder --win --publish always
 
+      # The same installer under a name that never changes, so the README can link
+      # straight to .../releases/latest/download/Bezel-Setup.exe
+      - name: Attach Bezel-Setup.exe
+        shell: bash
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          cp "release/Bezel-Setup-${tag#v}.exe" release/Bezel-Setup.exe
+          gh release upload "$tag" release/Bezel-Setup.exe --repo "$GITHUB_REPOSITORY" --clobber
+
       - name: Publish the release
         shell: bash
         run: gh release edit "${{ steps.version.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --draft=false --latest

@@ -22,17 +22,16 @@ export async function captureTab(stage, area) {
     surfaceSwitching: 'exclude',
   });
   const [track] = stream.getVideoTracks();
+  // The video starts before the crop, so it doesn't miss the first pictures
+  // (Chrome sends new ones only when something on the page changes).
+  const video = Object.assign(document.createElement('video'), { muted: true, playsInline: true, srcObject: stream });
+  const stopPainting = keepPainting(stage);
   try {
+    const playing = video.play();
     // Only the desk is recorded; this fails if another tab or window was chosen.
     await track.cropTo(await window.CropTarget.fromElement(stage));
-    const video = Object.assign(document.createElement('video'), { muted: true, playsInline: true, srcObject: stream });
-    const stopPainting = keepPainting(stage);
-    try {
-      await withTimeout(video.play(), 5000);
-      await settle(video, stage);
-    } finally {
-      stopPainting();
-    }
+    await withTimeout(playing, 5000);
+    await croppedFrame(video, stage);
 
     const box = stage.getBoundingClientRect();
     const a = area();
@@ -44,6 +43,7 @@ export async function captureTab(stage, area) {
     canvas.getContext('2d').drawImage(video, (a.x - box.left) * sx, (a.y - box.top) * sy, a.width * sx, a.height * sy, 0, 0, canvas.width, canvas.height);
     return await new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('No image'))), 'image/png'));
   } finally {
+    stopPainting();
     stream.getTracks().forEach((t) => t.stop());
   }
 }
@@ -51,18 +51,18 @@ export async function captureTab(stage, area) {
 const withTimeout = (promise, ms) =>
   Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('The tab recording sent no picture')), ms))]);
 
-// Chrome only sends a new picture when something on the page changes. An
-// invisible dot in the desk's corner changes every frame while we wait.
+// As a backstop, an invisible dot in the desk's corner is repainted every frame
+// while we wait (a colour change, which Chrome must paint, not just composite).
 function keepPainting(stage) {
   const box = stage.getBoundingClientRect();
   const dot = document.createElement('div');
-  dot.style.cssText = `position:fixed;left:${box.left}px;top:${box.top}px;width:2px;height:2px;background:#808080;opacity:0.01;pointer-events:none`;
+  dot.style.cssText = `position:fixed;left:${box.left}px;top:${box.top}px;width:2px;height:2px;pointer-events:none`;
   document.body.append(dot);
   let frame = 0;
   let odd = false;
   const tick = () => {
     odd = !odd;
-    dot.style.opacity = odd ? '0.02' : '0.01';
+    dot.style.background = odd ? 'rgb(128 128 128 / 0.03)' : 'rgb(128 128 128 / 0.02)';
     frame = requestAnimationFrame(tick);
   };
   tick();
@@ -72,15 +72,18 @@ function keepPainting(stage) {
   };
 }
 
-// Wait until the recording shows the cropped desk: Chrome's "sharing this tab"
-// bar can resize the page first, and frames only arrive when something changes.
-async function settle(video, stage) {
-  const deadline = performance.now() + 2500;
-  await sleep(250);
-  while (performance.now() < deadline) {
+// Wait for a picture of the cropped desk. Chrome's "sharing this tab" bar can
+// resize the page first, so the picture must have the desk's current proportions.
+async function croppedFrame(video, stage) {
+  const deadline = performance.now() + 4000;
+  const matches = () => {
     const box = stage.getBoundingClientRect();
-    if (video.videoWidth && Math.abs(video.videoWidth / video.videoHeight - box.width / box.height) < 0.02) break;
-    await sleep(60);
+    return video.videoWidth > 0 && Math.abs(video.videoWidth / video.videoHeight - box.width / box.height) < 0.02;
+  };
+  await sleep(200);
+  while (!matches()) {
+    if (performance.now() > deadline) throw new Error('The tab recording sent no picture');
+    await sleep(50);
   }
   await nextPaint();
 }
