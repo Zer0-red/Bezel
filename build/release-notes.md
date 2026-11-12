@@ -1,6 +1,2 @@
-- **New app icon:** a plain B with a tablet inside, without the cream square around it.
-- **Reload in the address bar:** the reload arrow now sits at the start of the address bar, like in a browser.
-- **Clearer update button:** it shows the circled up-arrow browsers use for updates.
-- **A cursor you can see:** phones and tablets keep your normal mouse pointer instead of Chrome's faint grey touch circle. Sites still see a touch screen; scroll with the wheel or trackpad.
-- **Device names centred** under each device, with the size and buttons below.
-- **Shorter README** with the download link at the top.
+- **New logo and app icon:** the solid B with a phone and a screen cut out, on the app, the taskbar, the browser tab and the top bar.
+- **No more tooltip over your site:** hovering a device in the app no longer shows "… preview" on top of the page.

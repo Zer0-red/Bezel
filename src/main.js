@@ -218,7 +218,7 @@ function createView(rig, device) {
   // very first load already sees the phone's pixel density, viewport rules and touch.
   const emulation = emulationFor(device);
   const view = h('webview', {
-    title: `${device.name} preview`,
+    'aria-label': `${device.name} preview`, // not title: on a webview it shows as a tooltip over the site
     partition: 'persist:bezel', // devices share cookies, so a login works in all of them
     useragent: emulation?.userAgent,
     src: 'about:blank',

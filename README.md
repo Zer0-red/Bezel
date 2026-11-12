@@ -1,4 +1,6 @@
-<p align="center"><img src="docs/logo.png" alt="Bezel" width="420"></p>
+<p align="center"><img src="docs/logo.png" alt="" width="96"></p>
+
+<h1 align="center">Bezel</h1>
 
 <p align="center"><strong>See your website on every screen at once.</strong></p>
 
