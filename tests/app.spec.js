@@ -1,5 +1,6 @@
 // The desktop app in Electron (from dist/, so `npm test` builds first). Devices are <webview>s
 // with the page script from src/sync.js injected. Each run gets its own settings folder.
+// To test a packaged build instead: BEZEL_APP=release/linux-unpacked/bezel npx playwright test --project=app
 import { test, expect, _electron as electron } from '@playwright/test';
 import electronPath from 'electron';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -9,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { SITE, PHONE, TABLET, LAPTOP, whereIs, userScrollTo, shows } from './helpers.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const PACKAGED = process.env.BEZEL_APP; // a built app's executable, if set
 let app;
 let win;
 let settings;
@@ -58,8 +60,8 @@ async function openSite() {
 test.beforeAll(async () => {
   settings = mkdtempSync(join(tmpdir(), 'bezel-test-'));
   app = await electron.launch({
-    executablePath: electronPath,
-    args: ['--no-sandbox', ROOT],
+    executablePath: PACKAGED || electronPath,
+    args: PACKAGED ? ['--no-sandbox'] : ['--no-sandbox', ROOT],
     // A fresh settings folder: Linux keeps them in $XDG_CONFIG_HOME, Windows in %APPDATA%.
     env: { ...process.env, XDG_CONFIG_HOME: settings, APPDATA: settings, NO_PROXY: '*' },
   });
@@ -176,6 +178,7 @@ test('a screenshot of the devices goes to the clipboard', async () => {
 });
 
 test('running from source, the update button says updates come with the installed app', async () => {
+  test.skip(!!PACKAGED, 'a packaged app checks GitHub for updates instead');
   await win.click('#update-btn');
   await expect(win.locator('#update-label')).toHaveText('Updates work in the installed app');
 });

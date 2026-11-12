@@ -30,7 +30,7 @@ npm run test:web   # just the web version
 npm run test:app   # just the app
 ```
 
-On Linux without a screen, run them under a virtual display: `xvfb-run -a npm test`. The browser tests open the small site in `tests/fixtures` (a fixed header, a grid that stacks on phones, a menu far down the page, a form, a link and a single-page-app route) and check what Bezel promises: device sizes and emulation, synced scrolling by content, clicks, followed pages, screenshots, and that the app can't open local files. They need Google Chrome installed.
+On Linux without a screen, run them under a virtual display: `xvfb-run -a npm test`. To run the app tests against a packaged build instead of the source, point them at it: `BEZEL_APP=release/linux-unpacked/bezel npx playwright test --project=app` (after `npm run dist:linux`). The browser tests open the small site in `tests/fixtures` (a fixed header, a grid that stacks on phones, a menu far down the page, a form, a link and a single-page-app route) and check what Bezel promises: device sizes and emulation, synced scrolling by content, clicks, followed pages, screenshots, and that the app can't open local files. They need Google Chrome installed.
 
 GitHub runs the same tests (`.github/workflows/tests.yml`) before every staging test build, Pages deploy and release; if one fails, nothing is built or published, and the failed tests' traces are attached to the run.
 
