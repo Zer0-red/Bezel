@@ -9,8 +9,10 @@ contextBridge.exposeInMainWorld('bezel', {
   emulate: (webContentsId, options) => ipcRenderer.invoke('bezel:emulate', webContentsId, options),
   /** Shortcuts pressed while a device view has focus. */
   onShortcut: (callback) => ipcRenderer.on('bezel:shortcut', (_event, data) => callback(data)),
-  /** A downloaded update is ready: { state: 'ready', version }. */
+  /** Update progress: { state: 'checking' | 'current' | 'downloading' | 'ready' | 'error' | 'dev', version?, percent? }. */
   onUpdate: (callback) => ipcRenderer.on('bezel:update', (_event, data) => callback(data)),
+  /** The lasting update state, for a page that loads after it changed. */
+  updateStatus: () => ipcRenderer.invoke('bezel:update-status'),
   installUpdate: () => ipcRenderer.send('bezel:install-update'),
   checkForUpdates: () => ipcRenderer.invoke('bezel:check-updates'),
 });

@@ -1,3 +1,3 @@
-- **Swap a device from its name:** click the name under any device, point at Phones, Tablets, Laptops or Desktops, then a series (iPhone, Pixel, Galaxy, MacBook…), and pick a device. It takes the old one's place, keeps landscape if it was turned, and devices already on the desk are greyed out.
-- **No scrollbars on laptops and monitors either:** every device now shows the page without a scrollbar, in the app and in the web version.
-- **The row of devices fits exactly:** a rounding error could leave a one-pixel sideways scrollbar under the desk.
+- **Update button in the toolbar:** at the right end of the top bar. Click it to check for updates; when a new version has downloaded it says **Install x.y.z**, and one click restarts Bezel into it. (The web version shows **Reload for x.y.z** in a tab left open when a new version is out.)
+- **Light theme:** the sun button switches to a light desk with a white toolbar; the moon switches back. Bezel remembers your choice.
+- **Favorite sites:** click the star in the address bar to keep a site. Click the address bar to pick from your favorites and recent sites, with the arrow keys or the mouse. They're still there when you open Bezel again.

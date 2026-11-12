@@ -154,7 +154,13 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
 // ── Updates (GitHub Releases) ────────────────────────────────
 
 function setUpAutoUpdates() {
-  const send = (data) => mainWindow?.webContents.send('bezel:update', data);
+  // The lasting state (downloading, ready) is kept, so a page that loads later can ask for it.
+  let status = { state: 'idle' };
+  const send = (data) => {
+    if (['downloading', 'ready'].includes(data.state)) status = { ...status, ...data };
+    mainWindow?.webContents.send('bezel:update', data);
+  };
+  ipcMain.handle('bezel:update-status', () => status);
 
   // Running from source (npm run app): there is nothing to update.
   if (!app.isPackaged) {
@@ -191,7 +197,11 @@ function setUpAutoUpdates() {
   });
   autoUpdater.on('error', (error) => {
     console.error('Update check failed:', error?.message ?? error);
+    // A failed background download must not leave the button saying "Downloading".
+    const wasDownloading = status.state === 'downloading';
+    if (wasDownloading) status = { state: 'idle' };
     if (manual) send({ state: 'error' });
+    else if (wasDownloading) send({ state: 'idle' });
     manual = false;
   });
 

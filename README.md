@@ -25,6 +25,8 @@ Bezel is a responsive testing tool for web development. Point it at your local d
 - **Synced scrolling**: scroll one device and the others follow to the same point of the page, so you see each section on every screen at once. Turn it off with the sync button or `Alt+S`.
 - **All devices or one**: see every device side by side, or open one at full size and switch with the device bar.
 - **Rotate**: switch phones, tablets and monitors between portrait and landscape.
+- **Favorite sites**: click the star in the address bar to keep a site. Click the address bar to see your favorites and recent sites; they're still there the next time you open Bezel.
+- **Light or dark**: the sun and moon button switches between a dark desk and a light one. Bezel remembers your choice.
 - **Built for localhost**: type just `3000` and Bezel opens `http://localhost:3000`. If your dev server has hot reload, every device updates when you save.
 - **Custom sizes**: add any width and height. Custom sizes and setups are saved on your computer.
 - **Shareable links**: the address you're testing is kept in the page URL (`?url=…`).
@@ -38,6 +40,7 @@ Both have the same interface and are built from the same code.
 | | Web version | Windows app |
 |---|---|---|
 | Install | Nothing, just open the link | One installer, then it updates itself |
+| Updates | Always the latest; a tab left open shows **Reload for x.y.z** when a new version is out | Downloads new versions by itself; the update button then says **Install x.y.z** |
 | Sites it can show | Sites that allow framing (most local projects) | Any site, including Google and client sites |
 | Phones and tablets | Exact screen size | Exact size **plus** mobile user agent, pixel density (2×–3.5×) and touch |
 | Scrollbars | Hidden on every device, by clipping them off (see Limitations) | Hidden on every device |
@@ -49,7 +52,7 @@ Both have the same interface and are built from the same code.
 
 1. Download `Bezel-Setup-x.y.z.exe` from [Releases](https://github.com/Zer0-red/Bezel/releases/latest) and run it.
 2. Because the app isn't code-signed, Windows shows "Windows protected your PC" the first time. Click **More info**, then **Run anyway**.
-3. That's it. You only download the installer once: Bezel updates itself. It checks when it starts and every few hours, downloads new versions in the background and offers **Restart to update** (or installs when you close it). To check right away, click the version number next to the name, top left.
+3. That's it. You only download the installer once: Bezel updates itself. It checks when it starts and every few hours and downloads new versions in the background. The update button at the right end of the toolbar then says **Install x.y.z**; click it to restart into the new version, or it installs when you close Bezel. To check right away, click that button (or the version number next to the name).
 
 ## How it works
 
@@ -88,7 +91,7 @@ npm run dist:win   # Windows installer → release/ (run on Windows)
 
 ### Hosting on GitHub Pages
 
-The `Deploy to GitHub Pages` workflow publishes the web version on every push to `main` (repo **Settings → Pages → Source: GitHub Actions**).
+The `Deploy to GitHub Pages` workflow publishes the web version on every push to `main` (repo **Settings → Pages → Source: GitHub Actions**). The build includes a `version.json`; a tab left open checks it now and then and offers a reload when a newer version is out.
 
 When Bezel is served from a public address like GitHub Pages, Chrome (142 and later) asks once for permission to reach devices on your local network before it can load `localhost` pages. Choose **Allow**. Running it locally (`npm run dev`) or using the Windows app avoids the prompt.
 
@@ -113,7 +116,7 @@ Creating a `vX.Y.Z` release on the Releases page (or pushing the tag) also start
 ## Usage
 
 1. Start your project's dev server as usual.
-2. Type its address in Bezel's address bar and press **Open**.
+2. Type its address in Bezel's address bar and press **Open**. Click the star to keep it in your favorites; next time, click the address bar and pick it from the list.
 3. Pick a setup from the menu on the left of the device bar, or use **Add device** to choose devices and popular sizes.
 4. Click a device's name in the device bar to jump to it. In **One device** view, the device bar switches devices.
 5. To swap a device for another, click its name under it and pick the new one from the menu (Phones → iPhone → iPhone 17 Pro Max, say). Devices already on the desk are greyed out.
@@ -154,6 +157,7 @@ On the web, shortcuts work while Bezel's own interface has focus (click the tool
 | `Alt+R` | Rotate the device on screen (in the all-devices view, all phones and tablets) |
 | `Alt+Shift+R` | Reload all devices |
 | `Alt+S` | Turn synced scrolling on or off |
+| `↓` / `↑` in the address bar | Move through favorites and recent sites; `Enter` opens one, `Delete` removes a favorite |
 
 ## Limitations of the web version
 
@@ -176,6 +180,7 @@ index.html                 App shell: toolbar, device bar, stage, setups menu, d
 src/main.js                State, rendering, device views, shortcuts
 src/picker.js              Device bar, setups menu and device library
 src/swap-menu.js           The menu under each device's name, to swap it for another
+src/address-list.js        Favorites and recent sites under the address bar
 src/devices.js             Device library, popular sizes (StatCounter) and setups
 src/frames.js              Geometry of each device frame (bezels, notch, stand…)
 src/emulation.js           Mobile user agents and pixel density for the Windows app
@@ -194,7 +199,8 @@ scripts/bump-version.mjs   npm run version:bump
 
 - [ ] Synced clicks and navigation
 - [ ] Screenshots for each device
-- [ ] Light theme for the app UI
+- [x] Light theme
+- [x] Favorite sites
 - [x] Synced scrolling across all devices
 - [x] Save device setups
 - [x] Windows app for sites that block framing

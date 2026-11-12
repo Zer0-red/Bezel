@@ -3,6 +3,7 @@ import './styles.css';
 import { CATEGORIES, DEFAULT_DEVICE_IDS, DEVICES, POPULAR_DEVICES } from './devices.js';
 import { createPicker } from './picker.js';
 import { createSwapMenu } from './swap-menu.js';
+import { createAddressList } from './address-list.js';
 import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
@@ -33,6 +34,8 @@ const defaults = {
   custom: [],
   setups: [], // the user's saved setups
   syncScroll: true, // scroll one device, the others follow
+  favorites: [], // [{ url, title? }] starred in the address bar
+  theme: 'dark', // or 'light'
   lastByCategory: {},
 };
 
@@ -49,6 +52,11 @@ if (!deviceById(state.focusId)) state.focusId = state.selected[0] ?? DEVICES[0].
 if (!['grid', 'focus'].includes(state.mode)) state.mode = 'grid';
 if (!Array.isArray(state.setups)) state.setups = [];
 if (!Array.isArray(state.custom)) state.custom = [];
+if (!Array.isArray(state.recent)) state.recent = [];
+state.favorites = (Array.isArray(state.favorites) ? state.favorites : [])
+  .filter((f) => typeof f?.url === 'string' && normalizeUrl(f.url) === f.url)
+  .map((f) => (typeof f.title === 'string' && f.title ? { url: f.url, title: f.title.slice(0, 120) } : { url: f.url }));
+if (!['dark', 'light'].includes(state.theme)) state.theme = 'dark';
 
 // A ?url= link wins over the saved address.
 const linkedUrl = normalizeUrl(new URLSearchParams(location.search).get('url'));
@@ -62,7 +70,6 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   form: $('#address-form'),
   input: $('#address-input'),
-  recent: $('#recent-urls'),
   reload: $('#reload-btn'),
   rotate: $('#rotate-btn'),
   sync: $('#sync-btn'),
@@ -73,10 +80,11 @@ const els = {
   rack: $('#rack'),
   empty: $('#stage-empty'),
   version: $('#app-version'),
-  update: $('#update-toast'),
-  updateText: $('#update-text'),
-  updateRestart: $('#update-restart'),
-  updateLater: $('#update-later'),
+  theme: $('#theme-btn'),
+  updateBtn: $('#update-btn'),
+  updateIcon: $('.update-btn__icon'),
+  updateLabel: $('#update-label'),
+  updateStatus: $('#update-status'),
 };
 
 function h(tag, attrs = {}, ...children) {
@@ -475,7 +483,7 @@ function toggleSync() {
 
 function renderToolbar() {
   els.input.value = state.url ? displayUrl(state.url) : '';
-  els.recent.replaceChildren(...state.recent.map((url) => h('option', { value: displayUrl(url) })));
+  addressList.renderStar();
   els.modeButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.mode === state.mode)));
   els.zoom.value = String(state.zoom);
   els.reload.disabled = !state.url;
@@ -608,12 +616,14 @@ function rotate() {
 
 els.form.addEventListener('submit', (e) => {
   e.preventDefault();
+  addressList.close();
   openUrl(els.input.value);
 });
 els.input.addEventListener('input', () => els.input.setCustomValidity(''));
 els.reload.addEventListener('click', reloadAll);
 els.rotate.addEventListener('click', rotate);
 els.sync.addEventListener('click', toggleSync);
+els.theme.addEventListener('click', toggleTheme);
 els.modeButtons.forEach((btn) => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
 els.zoom.addEventListener('change', () => {
   state.zoom = els.zoom.value === 'fit' ? 'fit' : Number(els.zoom.value);
@@ -679,6 +689,100 @@ function runShortcut(code, shift) {
   return false;
 }
 
+// ── Theme ────────────────────────────────────────────────────
+
+/** Dark (the default) or light. index.html applies the saved theme before the first paint too. */
+function applyTheme() {
+  const light = state.theme === 'light';
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', light ? 'light' : 'dark');
+  const label = light ? 'Switch to dark theme' : 'Switch to light theme';
+  els.theme.setAttribute('aria-label', label);
+  els.theme.title = label;
+}
+
+function toggleTheme() {
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  persist();
+  applyTheme();
+}
+
+// ── Updates (button at the end of the toolbar) ───────────────
+
+const UPDATE_ICONS = {
+  download: '<svg viewBox="0 0 24 24"><path d="M12 4v10.5M7.5 10 12 14.5 16.5 10M5 19.5h14"/></svg>',
+  spinner: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-8-8"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  reload: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>',
+};
+
+let updateTimer = 0;
+
+/** States from electron/main.cjs (idle, checking, current, downloading, ready, error, dev), plus reload on the web. */
+function showUpdate({ state: updateState, version, percent } = {}) {
+  clearTimeout(updateTimer);
+  const btn = els.updateBtn;
+  if (version) btn.dataset.version = version;
+  const v = btn.dataset.version ?? '';
+  const views = {
+    idle: { icon: 'download', label: '', title: 'Check for updates' },
+    checking: { icon: 'spinner', label: '', title: 'Checking for updates…', status: 'Checking for updates…' },
+    current: { icon: 'check', label: 'Up to date', title: `Bezel ${__APP_VERSION__} is the latest version.`, status: 'Bezel is up to date.', reset: 4000 },
+    downloading: { icon: 'download', label: `Downloading ${v} (${percent ?? 0}%)`, title: `Bezel ${v} is downloading. You can keep working.` },
+    ready: { icon: 'download', label: `Install ${v}`, title: `Restart Bezel to install version ${v}`, status: `Bezel ${v} is ready to install.` },
+    reload: { icon: 'reload', label: `Reload for ${v}`, title: `Bezel ${v} is out. Reload the page to use it.`, status: `Bezel ${v} is out.` },
+    error: { icon: 'download', label: 'Couldn’t check', title: 'Couldn’t check for updates. Check your connection and try again.', status: 'Couldn’t check for updates.', reset: 6000 },
+    dev: { icon: 'download', label: 'Updates work in the installed app', title: 'Updates work in the installed app.', reset: 5000 },
+  };
+  const key = views[updateState] ? updateState : 'idle';
+  const view = views[key];
+  btn.dataset.state = key;
+  els.updateIcon.innerHTML = UPDATE_ICONS[view.icon];
+  els.updateLabel.textContent = view.label;
+  btn.setAttribute('aria-label', view.label || view.title);
+  btn.title = view.title;
+  if (view.status) els.updateStatus.textContent = view.status;
+  if (view.reset) updateTimer = setTimeout(() => showUpdate({ state: 'idle' }), view.reset);
+  // The web version only shows the button when there is something to reload for.
+  btn.hidden = !bridge && key !== 'reload';
+}
+
+els.updateBtn.addEventListener('click', () => {
+  const current = els.updateBtn.dataset.state;
+  if (current === 'ready') bridge?.installUpdate();
+  else if (current === 'reload') location.reload();
+  else if (bridge && !['checking', 'downloading'].includes(current)) bridge.checkForUpdates();
+});
+
+// Web version: GitHub Pages serves a version.json next to the page (vite.config.js).
+// A tab left open finds out when a newer Bezel is out and offers a reload.
+if (!bridge) {
+  const newer = (a, b) => {
+    const [pa, pb] = [a, b].map((v) => v.split('.').map(Number));
+    for (let i = 0; i < 3; i += 1) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+    return false;
+  };
+  let lastCheck = 0;
+  const checkDeployed = async () => {
+    lastCheck = Date.now();
+    try {
+      const res = await fetch(`./version.json?t=${lastCheck}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const { version } = await res.json();
+      if (typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version) && newer(version, __APP_VERSION__)) {
+        showUpdate({ state: 'reload', version });
+      }
+    } catch {
+      /* offline, or the development server (no version.json) */
+    }
+  };
+  setTimeout(checkDeployed, 5000);
+  setInterval(checkDeployed, 30 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - lastCheck > 10 * 60 * 1000) checkDeployed();
+  });
+}
+
 // ── Desktop app only ─────────────────────────────────────────
 
 if (bridge) {
@@ -688,28 +792,12 @@ if (bridge) {
   // The brand link would reload the app's file; it stays put instead.
   document.querySelector('.brand')?.addEventListener('click', (e) => e.preventDefault());
 
-  // Updates: the app checks by itself; the version number checks on demand.
-  let hideTimer = 0;
-  function showUpdate({ state: updateState, version, percent }) {
-    clearTimeout(hideTimer);
-    const ready = updateState === 'ready';
-    const messages = {
-      checking: 'Checking for updates…',
-      current: `Bezel is up to date (v${version ?? __APP_VERSION__}).`,
-      downloading: `Downloading Bezel ${version ?? 'update'}… ${percent ?? 0}%`,
-      ready: `Bezel ${version} is ready.`,
-      error: 'Couldn’t check for updates. Check your connection and try again.',
-      dev: 'Updates work in the installed app.',
-    };
-    els.updateText.textContent = messages[updateState] ?? '';
-    els.updateLater.hidden = !ready;
-    els.updateRestart.hidden = !ready;
-    els.update.hidden = false;
-    if (['current', 'error', 'dev'].includes(updateState)) hideTimer = setTimeout(() => (els.update.hidden = true), 5000);
-  }
+  // Updates: the app checks by itself; the button in the toolbar (or the version number) checks on demand.
   bridge.onUpdate(showUpdate);
-  els.updateRestart.addEventListener('click', () => bridge.installUpdate());
-  els.updateLater.addEventListener('click', () => (els.update.hidden = true));
+  bridge
+    .updateStatus?.()
+    .then((status) => status && showUpdate(status)) // an update may have downloaded before this page loaded
+    .catch(() => {});
 
   els.version.disabled = false;
   els.version.title = 'Check for updates';
@@ -723,6 +811,15 @@ new ResizeObserver(() => {
 }).observe(els.stage);
 
 const swapMenu = createSwapMenu({ state, h, allDevices, deviceById, replaceDevice });
+
+// The page title of an open site (desktop app only; the web version can't read another site's title).
+const pageTitle = (url) => {
+  if (!bridge) return '';
+  const rig = [...rigs.values()].find((r) => r.viewReady && r.url === url);
+  const title = rig?.view?.getTitle?.()?.trim() ?? '';
+  return title && title !== url && !url.includes(title) ? title : '';
+};
+const addressList = createAddressList({ state, h, persist, displayUrl, openUrl, pageTitle });
 
 const picker = createPicker({
   state,
@@ -739,5 +836,7 @@ const picker = createPicker({
   scrollToDevice,
 });
 
+applyTheme();
+showUpdate({ state: 'idle' });
 render();
 if (!state.url) els.input.focus();
