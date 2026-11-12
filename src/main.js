@@ -807,15 +807,24 @@ const UPDATE_ICONS = {
 };
 
 let updateTimer = 0;
+let updateLight = ''; // the light on the button: 'ok' (green, up to date) or 'new' (orange, a new version is out)
 
-/** States from electron/main.cjs (idle, checking, current, downloading, ready, error, dev), plus reload on the web. */
-function showUpdate({ state: updateState, version, percent } = {}) {
+/**
+ * States from electron/main.cjs (idle, checking, current, downloading, ready, error, dev), plus reload on the web.
+ * `quiet`: a check nobody asked for; "up to date" then only turns the light green.
+ */
+function showUpdate({ state: updateState, version, percent, quiet = false } = {}) {
   clearTimeout(updateTimer);
   const btn = els.updateBtn;
   if (version) btn.dataset.version = version;
   const v = btn.dataset.version ?? '';
+  if (['downloading', 'ready', 'reload'].includes(updateState)) updateLight = 'new';
+  else if (updateState === 'current') updateLight = 'ok';
+  if (quiet && updateState === 'current') updateState = 'idle';
+  const idleTitle =
+    updateLight === 'ok' ? `Bezel ${__APP_VERSION__} is up to date. Click to check again.` : updateLight === 'new' ? `A new version of Bezel is out` : 'Check for updates';
   const views = {
-    idle: { icon: 'update', label: '', title: 'Check for updates' },
+    idle: { icon: 'update', label: '', title: idleTitle },
     checking: { icon: 'spinner', label: '', title: 'Checking for updates…', status: 'Checking for updates…' },
     current: { icon: 'check', label: 'Up to date', title: `Bezel ${__APP_VERSION__} is the latest version.`, status: 'Bezel is up to date.', reset: 4000 },
     downloading: { icon: 'update', label: `Downloading ${v} (${percent ?? 0}%)`, title: `Bezel ${v} is downloading. You can keep working.` },
@@ -833,43 +842,49 @@ function showUpdate({ state: updateState, version, percent } = {}) {
   btn.title = view.title;
   if (view.status) els.updateStatus.textContent = view.status;
   if (view.reset) updateTimer = setTimeout(() => showUpdate({ state: 'idle' }), view.reset);
-  // The web version only shows the button when there is something to reload for.
-  btn.hidden = !bridge && key !== 'reload';
+  btn.dataset.light = updateLight;
+  btn.hidden = false;
 }
 
 els.updateBtn.addEventListener('click', () => {
   const current = els.updateBtn.dataset.state;
   if (current === 'ready') bridge?.installUpdate();
   else if (current === 'reload') location.reload();
-  else if (bridge && !['checking', 'downloading'].includes(current)) bridge.checkForUpdates();
+  else if (['checking', 'downloading'].includes(current)) return;
+  else if (bridge) bridge.checkForUpdates();
+  else checkDeployed({ manual: true });
 });
 
 // Web version: GitHub Pages serves a version.json next to the page (vite.config.js).
-// A tab left open finds out when a newer Bezel is out and offers a reload.
+// The light goes green when this is the latest Bezel; a tab left open offers a reload when a newer one is out.
+const newerVersion = (a, b) => {
+  const [pa, pb] = [a, b].map((v) => v.split('.').map(Number));
+  for (let i = 0; i < 3; i += 1) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  return false;
+};
+let lastWebCheck = 0;
+
+async function checkDeployed({ manual = false } = {}) {
+  lastWebCheck = Date.now();
+  if (manual) showUpdate({ state: 'checking' });
+  try {
+    const res = await fetch(`./version.json?t=${lastWebCheck}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`version.json: ${res.status}`);
+    const { version } = await res.json();
+    if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version)) throw new Error('version.json: no version');
+    if (newerVersion(version, __APP_VERSION__)) showUpdate({ state: 'reload', version });
+    else showUpdate({ state: 'current', quiet: !manual });
+  } catch {
+    // Offline, or the development server (it has no version.json).
+    if (manual) showUpdate({ state: 'error' });
+  }
+}
+
 if (!bridge) {
-  const newer = (a, b) => {
-    const [pa, pb] = [a, b].map((v) => v.split('.').map(Number));
-    for (let i = 0; i < 3; i += 1) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
-    return false;
-  };
-  let lastCheck = 0;
-  const checkDeployed = async () => {
-    lastCheck = Date.now();
-    try {
-      const res = await fetch(`./version.json?t=${lastCheck}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const { version } = await res.json();
-      if (typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version) && newer(version, __APP_VERSION__)) {
-        showUpdate({ state: 'reload', version });
-      }
-    } catch {
-      /* offline, or the development server (no version.json) */
-    }
-  };
-  setTimeout(checkDeployed, 5000);
+  setTimeout(checkDeployed, 1500);
   setInterval(checkDeployed, 30 * 60 * 1000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - lastCheck > 10 * 60 * 1000) checkDeployed();
+    if (document.visibilityState === 'visible' && Date.now() - lastWebCheck > 10 * 60 * 1000) checkDeployed();
   });
 }
 

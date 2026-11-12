@@ -180,10 +180,13 @@ ipcMain.handle('bezel:capture', async (event, rect) => {
 // ── Updates (GitHub Releases) ────────────────────────────────
 
 function setUpAutoUpdates() {
-  // The lasting state (downloading, ready) is kept, so a page that loads later can ask for it.
+  // The lasting state (up to date, downloading, ready) is kept, so a page that loads later can ask for it.
   let status = { state: 'idle' };
   const send = (data) => {
-    if (['downloading', 'ready'].includes(data.state)) status = { ...status, ...data };
+    // Lasting states, kept for the button's light (green: up to date, orange: a new version).
+    if (['current', 'downloading', 'ready'].includes(data.state)) {
+      status = data.state === status.state ? { ...status, ...data, quiet: true } : { ...data, quiet: true };
+    }
     mainWindow?.webContents.send('bezel:update', data);
   };
   ipcMain.handle('bezel:update-status', () => status);
@@ -213,7 +216,8 @@ function setUpAutoUpdates() {
   autoUpdater.on('update-available', (info) => send({ state: 'downloading', version: info.version, percent: 0 }));
   autoUpdater.on('download-progress', (progress) => send({ state: 'downloading', percent: Math.round(progress.percent) }));
   autoUpdater.on('update-not-available', () => {
-    if (manual) send({ state: 'current', version: app.getVersion() });
+    // Every check reports "up to date" (it turns the light green); only a requested one says so out loud.
+    send({ state: 'current', version: app.getVersion(), quiet: !manual });
     manual = false;
   });
   autoUpdater.on('update-downloaded', (info) => {

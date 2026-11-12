@@ -560,6 +560,7 @@ svg {
 
 /* Update button: an icon until there is news, then a labelled button. */
 .update-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -584,6 +585,34 @@ svg {
 }
 
 .update-btn__label:empty {
+  display: none;
+}
+
+/* The light: green when Bezel is up to date, orange when a new version is out. */
+.update-btn__light {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--chrome);
+}
+
+.update-btn[data-light='ok'] .update-btn__light {
+  display: block;
+  background: var(--ok);
+}
+
+.update-btn[data-light='new'] .update-btn__light {
+  display: block;
+  background: var(--amber);
+}
+
+/* Ready to install: the whole button is orange, so no light. */
+.update-btn[data-state='ready'] .update-btn__light,
+.update-btn[data-state='reload'] .update-btn__light {
   display: none;
 }
 

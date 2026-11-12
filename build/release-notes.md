@@ -1,2 +1,2 @@
-- **New logo and app icon:** the solid B with a phone and a screen cut out, on the app, the taskbar, the browser tab and the top bar.
-- **No more tooltip over your site:** hovering a device in the app no longer shows "… preview" on top of the page.
+- **Update light:** the update button has a small light. Green: Bezel is up to date. Orange: a new version is out (it downloads by itself). When it's ready, the whole button turns orange and says **Install**.
+- **App icon:** the B's phone and screen cutouts are now white.
