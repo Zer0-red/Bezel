@@ -1477,6 +1477,11 @@ svg {
   transition: transform 180ms ease;
 }
 
+/* Pinching: follow the fingers, no easing. */
+.stage.is-zooming .device {
+  transition: none;
+}
+
 .device__body {
   position: absolute;
   z-index: 1;

@@ -21,6 +21,7 @@ Bezel puts your site on a phone, a tablet and a laptop side by side, drawn like 
 - **Swap a device fast.** Click the name under a device and pick another from the menu.
 - **Scroll once, see it everywhere.** Scroll one device and the others follow to the same spot.
 - **Screenshots.** The camera button copies all the devices to your clipboard, ready to paste.
+- **Zoom like on a phone.** Pinch on the trackpad, or hold `Ctrl` and turn the mouse wheel.
 - **The little things.** Rotate phones and tablets, open one device full size, star your favorite sites, switch between a dark and a light desk.
 
 ## Windows app or browser?
@@ -32,6 +33,7 @@ Both look and work the same. The app can do more, because a browser tab has limi
 | Sites it can show | Any site | Sites that allow being shown in a frame (most local projects do) |
 | Phones and tablets | Real behaviour: mobile browser, pixel density and touch support | The right screen size |
 | Synced scrolling | Works everywhere | Needs [one line in your site](#synced-scrolling-in-the-browser) |
+| Pinch to zoom | Anywhere | Around the devices, or on them with the same line in your site |
 | Screenshots | One click | Chrome and Edge ask to share the tab first |
 | Updates | Downloads them by itself | Always the latest |
 
@@ -54,10 +56,11 @@ Click the star in the address bar to keep a site in your favorites. Next time, c
 | `Alt+Shift+R` | Reload all devices |
 | `Alt+S` | Turn synced scrolling on or off |
 | `Alt+C` | Copy a screenshot |
+| Pinch, or `Ctrl` + wheel | Zoom the devices in and out (pick **Fit** in the zoom menu to reset) |
 
 ### Synced scrolling in the browser
 
-A web page can't scroll other sites, so in the browser version your site has to join in. Add this line while you develop (the app doesn't need it):
+A web page can't scroll other sites, so in the browser version your site has to join in. The same line lets you pinch to zoom with the pointer on a device. Add this line while you develop (the app doesn't need it):
 
 ```html
 <script src="https://zer0-red.github.io/Bezel/sync.js" defer></script>

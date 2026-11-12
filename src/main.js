@@ -9,7 +9,7 @@ import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
 import { emulationFor } from './emulation.js';
-import { PAGE_SCRIPT, ratioFromConsole, ratioFromMessage } from './sync.js';
+import { PAGE_SCRIPT, ratioFromConsole, ratioFromMessage, zoomFromConsole, zoomFromMessage } from './sync.js';
 
 // In the Windows app (electron/preload.cjs) devices are real browser views
 // instead of iframes, so every site loads and phones get mobile emulation.
@@ -24,13 +24,19 @@ document.querySelector('#app-version').textContent = `v${__APP_VERSION__}`;
 const CAPTION_SPACE = 72; // room under each device for its caption (two centred lines)
 const MAX_RECENT = 8;
 
+// Zoom: a fixed scale between these, or Fit times a factor of at least FIT_ZOOM_MIN.
+const ZOOM_MIN = 0.1;
+const ZOOM_MAX = 2;
+const FIT_ZOOM_MIN = 0.2;
+
 const defaults = {
   url: '',
   recent: [],
   selected: [...DEFAULT_DEVICE_IDS],
   mode: 'grid', // 'grid' = all devices, 'focus' = one device
   focusId: DEFAULT_DEVICE_IDS[0],
-  zoom: 'fit',
+  zoom: 'fit', // 'fit' or a scale (1 = 100%)
+  fitZoom: 1, // pinch or Ctrl + wheel on top of Fit: 1.3 = 30% bigger than fitted
   rotated: {},
   custom: [],
   setups: [], // the user's saved setups
@@ -58,6 +64,8 @@ state.favorites = (Array.isArray(state.favorites) ? state.favorites : [])
   .filter((f) => typeof f?.url === 'string' && normalizeUrl(f.url) === f.url)
   .map((f) => (typeof f.title === 'string' && f.title ? { url: f.url, title: f.title.slice(0, 120) } : { url: f.url }));
 if (!['dark', 'light'].includes(state.theme)) state.theme = 'dark';
+if (state.zoom !== 'fit' && !(Number.isFinite(state.zoom) && state.zoom >= ZOOM_MIN && state.zoom <= ZOOM_MAX)) state.zoom = 'fit';
+if (!(Number.isFinite(state.fitZoom) && state.fitZoom >= FIT_ZOOM_MIN && state.fitZoom <= 20)) state.fitZoom = 1;
 
 // A ?url= link wins over the saved address.
 const linkedUrl = normalizeUrl(new URLSearchParams(location.search).get('url'));
@@ -252,7 +260,15 @@ function createView(rig, device) {
   });
   view.addEventListener('console-message', (e) => {
     const ratio = ratioFromConsole(e.message);
-    if (ratio !== null) syncScroll(rig, ratio);
+    if (ratio !== null) {
+      syncScroll(rig, ratio);
+      return;
+    }
+    const zoom = zoomFromConsole(e.message); // a pinch or Ctrl + wheel inside the device
+    if (zoom) {
+      const at = viewPoint(rig, zoom.x, zoom.y);
+      zoomAt(zoom.deltaY, at.x, at.y);
+    }
   });
   view.addEventListener('did-start-loading', () => setScreenMessage(rig, ''));
   view.addEventListener('did-stop-loading', () => rig.root.classList.remove('is-loading'));
@@ -399,6 +415,7 @@ function syncRigs() {
 // but not below this share of each device's height-fitted size (then it scrolls).
 const MIN_ROW_SHRINK = 0.55;
 const CAPTION_MIN_WIDTH = 220; // .rig__caption min-width in styles.css
+let fitScaleMax = 1; // the largest device scale Fit gives before state.fitZoom (set by layout)
 
 function layout() {
   const cs = getComputedStyle(els.stage);
@@ -454,6 +471,12 @@ function layout() {
     for (const d of shown) d.s *= factor;
   }
 
+  // Zoomed in or out from Fit (pinch or Ctrl + wheel): every device grows or shrinks by the same factor.
+  if (state.zoom === 'fit' && shown.length) {
+    fitScaleMax = Math.max(...shown.map((d) => d.s));
+    for (const d of shown) d.s *= state.fitZoom;
+  }
+
   for (const { rig, device, g, rotated, s: scale } of shown) {
     const s = Math.max(0.05, scale);
     rig.frame.style.width = `${g.outerW * s}px`;
@@ -466,6 +489,93 @@ function layout() {
     rig.rotateBtn.hidden = !canRotate(device);
     rig.rotateBtn.setAttribute('aria-pressed', String(rotated));
   }
+}
+
+// ── Zoom: pinch on a trackpad, or Ctrl + mouse wheel ─────────
+// Browsers send a trackpad pinch as a wheel event with ctrlKey set, so both arrive the same way:
+// on the desk directly, from device views through the page script (app) or sync.js (web).
+
+const ZOOM_PRESETS = ['0.25', '0.5', '0.75', '1'];
+const zoomGesture = { factor: 1, x: 0, y: 0, frame: 0, idle: 0 };
+
+/** A wheel's deltaY in pixels (lines and pages converted), for one step of zoom. */
+const wheelPixels = (e) => e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 800 : 1);
+
+/** Zoom by one wheel event at a point in this window. A mouse-wheel notch zooms about 11%; a pinch follows the fingers. */
+function zoomAt(deltaY, x, y) {
+  const step = Math.max(-12, Math.min(12, deltaY));
+  zoomGesture.factor *= Math.exp(-step / 100);
+  zoomGesture.x = x;
+  zoomGesture.y = y;
+  els.stage.classList.add('is-zooming'); // no transform transition while the fingers move
+  if (!zoomGesture.frame) zoomGesture.frame = requestAnimationFrame(applyZoom);
+}
+
+/** The device nearest a point, and where the point sits on it (0–1 across and down, can overshoot). */
+function anchorAt(x, y) {
+  let best = null;
+  for (const rig of rigs.values()) {
+    if (rig.root.hidden) continue;
+    const r = rig.frame.getBoundingClientRect();
+    const dx = Math.max(r.left - x, 0, x - r.right);
+    const dy = Math.max(r.top - y, 0, y - r.bottom);
+    const distance = Math.hypot(dx, dy);
+    if (!best || distance < best.distance) best = { rig, distance, fx: (x - r.left) / r.width, fy: (y - r.top) / r.height };
+  }
+  return best;
+}
+
+function applyZoom() {
+  const { factor, x, y } = zoomGesture;
+  zoomGesture.frame = 0;
+  zoomGesture.factor = 1;
+  const anchor = anchorAt(x, y);
+  if (state.zoom === 'fit') {
+    state.fitZoom = Math.min(ZOOM_MAX / fitScaleMax, Math.max(FIT_ZOOM_MIN, state.fitZoom * factor));
+  } else {
+    state.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, state.zoom * factor));
+  }
+  layout();
+  renderZoom();
+  // Keep the same spot of the same device under the pointer.
+  if (anchor) {
+    const r = anchor.rig.frame.getBoundingClientRect();
+    els.stage.scrollLeft += r.left + anchor.fx * r.width - x;
+    els.stage.scrollTop += r.top + anchor.fy * r.height - y;
+  }
+  clearTimeout(zoomGesture.idle);
+  zoomGesture.idle = setTimeout(() => {
+    els.stage.classList.remove('is-zooming');
+    // Back to plain Fit when the gesture ends within 2% of it.
+    if (state.zoom === 'fit' && state.fitZoom !== 1 && Math.abs(state.fitZoom - 1) < 0.02) {
+      state.fitZoom = 1;
+      layout();
+      renderZoom();
+    }
+    persist();
+  }, 250);
+}
+
+/** A point in a device view (its own CSS pixels) as a point in this window. */
+function viewPoint(rig, x, y) {
+  const r = rig.view.getBoundingClientRect();
+  const k = rig.view.offsetWidth ? r.width / rig.view.offsetWidth : 1;
+  return { x: r.left + x * k, y: r.top + y * k };
+}
+
+/** The zoom menu shows Fit, a preset, or what a pinch made of it ("Fit +30%", "63%"). */
+function renderZoom() {
+  const custom = els.zoom.querySelector('option[value="custom"]');
+  let value;
+  if (state.zoom === 'fit') {
+    value = state.fitZoom === 1 ? 'fit' : 'custom';
+    const pct = Math.round((state.fitZoom - 1) * 100);
+    custom.textContent = `Fit ${pct < 0 ? '−' : '+'}${Math.abs(pct)}%`;
+  } else {
+    value = ZOOM_PRESETS.includes(String(state.zoom)) ? String(state.zoom) : 'custom';
+    custom.textContent = `${Math.round(state.zoom * 100)}%`;
+  }
+  els.zoom.value = value;
 }
 
 // ── Synced scrolling ─────────────────────────────────────────
@@ -490,11 +600,20 @@ if (!bridge) {
     if (!rig) return;
     if (e.data?.bezel === 'hello') {
       rig.syncHelper = true;
+      e.source.postMessage({ bezel: 'ready' }, '*'); // the helper may now pass on pinches and Ctrl + wheel
       renderToolbar();
       return;
     }
     const ratio = ratioFromMessage(e.data);
-    if (ratio !== null) syncScroll(rig, ratio);
+    if (ratio !== null) {
+      syncScroll(rig, ratio);
+      return;
+    }
+    const zoom = zoomFromMessage(e.data);
+    if (zoom) {
+      const at = viewPoint(rig, zoom.x, zoom.y);
+      zoomAt(zoom.deltaY, at.x, at.y);
+    }
   });
 }
 
@@ -508,7 +627,7 @@ function renderToolbar() {
   els.input.value = state.url ? displayUrl(state.url) : '';
   addressList.renderStar();
   els.modeButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.mode === state.mode)));
-  els.zoom.value = String(state.zoom);
+  renderZoom();
   els.reload.disabled = !state.url;
   els.sync.setAttribute('aria-pressed', String(state.syncScroll));
   const helperSeen = bridge || [...rigs.values()].some((r) => r.syncHelper);
@@ -653,19 +772,28 @@ els.shot.addEventListener('click', takeScreenshot);
 els.theme.addEventListener('click', toggleTheme);
 els.modeButtons.forEach((btn) => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
 els.zoom.addEventListener('change', () => {
+  if (els.zoom.value === 'custom') return;
   state.zoom = els.zoom.value === 'fit' ? 'fit' : Number(els.zoom.value);
+  state.fitZoom = 1;
   persist();
   layout();
+  renderZoom();
 });
 
 // The device menu is placed next to a caption; it closes when the desk scrolls.
 els.stage.addEventListener('scroll', () => swapMenu.close(), { passive: true });
 
-// Scroll the row of devices sideways with a normal mouse wheel.
+// Pinch on the trackpad or Ctrl + wheel zooms the devices (instead of the whole page);
+// a normal mouse wheel scrolls the row of devices sideways.
 els.stage.addEventListener(
   'wheel',
   (e) => {
-    if (state.mode !== 'grid' || e.ctrlKey) return;
+    if (e.ctrlKey) {
+      e.preventDefault();
+      zoomAt(wheelPixels(e), e.clientX, e.clientY);
+      return;
+    }
+    if (state.mode !== 'grid') return;
     const canScrollX = els.stage.scrollWidth > els.stage.clientWidth;
     const canScrollY = els.stage.scrollHeight > els.stage.clientHeight;
     if (canScrollX && !canScrollY && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
