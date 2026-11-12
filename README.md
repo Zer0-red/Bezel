@@ -23,7 +23,7 @@ Bezel puts your site on a phone, a tablet and a laptop side by side, drawn like 
 - **Real devices.** The latest iPhones, Pixels and Galaxys, iPads, MacBook Air and Pro, ThinkPad, Surface and other Windows laptops, and monitors, each at its real screen size. You can also add the most-used screen sizes or your own.
 - **One-click setups.** *Phone, tablet, laptop*, *Three phones*, *Apple* and more. Save your own.
 - **Swap a device fast.** Click the name under a device and pick another from the menu.
-- **Scroll once, see it everywhere.** Scroll one device and the others follow to the same spot.
+- **Scroll or click once, see it everywhere.** Scroll one device and the others follow to the same spot. Open a menu or a tab and it opens in all of them, even where it's scrolled out of view; follow a link and they all go to that page.
 - **Screenshots.** The camera button copies all the devices to your clipboard, ready to paste.
 - **Zoom like on a phone.** Pinch on the trackpad, or hold `Ctrl` and turn the mouse wheel.
 - **The little things.** Rotate phones and tablets, open one device full size, star your favorite sites, switch between a dark and a light desk.
@@ -36,7 +36,7 @@ Both look and work the same. The app can do more, because a browser tab has limi
 |---|---|---|
 | Sites it can show | Any site | Sites that allow being shown in a frame (most local projects do) |
 | Phones and tablets | Real behaviour: mobile browser, pixel density and touch support | The right screen size |
-| Synced scrolling | Works everywhere | Needs [one line in your site](#synced-scrolling-in-the-browser) |
+| Synced scrolling and clicks | Works everywhere | Needs [one line in your site](#syncing-in-the-browser) |
 | Pinch to zoom | Anywhere | Around the devices, or on them with the same line in your site |
 | Screenshots | One click | Chrome and Edge ask to share the tab first |
 | Updates | Downloads them by itself | Always the latest |
@@ -64,13 +64,13 @@ Click the star in the address bar to keep a site in your favorites. Next time, c
 | `Alt+0` or `Esc` | Back to all devices |
 | `Alt+R` | Rotate |
 | `Alt+Shift+R` | Reload all devices |
-| `Alt+S` | Turn synced scrolling on or off |
+| `Alt+S` | Turn synced scrolling and clicks on or off |
 | `Alt+C` | Copy a screenshot |
 | Pinch, or `Ctrl` + wheel | Zoom the devices in and out (pick **Fit** in the zoom menu to reset) |
 
-### Synced scrolling in the browser
+### Syncing in the browser
 
-A web page can't scroll other sites, so in the browser version your site has to join in. The same line lets you pinch to zoom with the pointer on a device. Add this line while you develop (the app doesn't need it):
+A web page can't scroll or click other sites, so in the browser version your site has to join in. The same line lets you pinch to zoom with the pointer on a device. Add this line while you develop (the app doesn't need it):
 
 ```html
 <script src="https://zer0-red.github.io/Bezel/sync.js" defer></script>
@@ -88,6 +88,7 @@ import Script from 'next/script';
 
 - **A site stays blank in the browser version?** It probably forbids being shown in a frame (`X-Frame-Options` or `frame-ancestors`). Use the app, or allow Bezel's address in your site's headers.
 - **Chrome asks to "access devices on your local network"?** Choose **Allow**. Bezel needs it to show `localhost` from its web address.
+- **Clicks happen in every device.** Buttons that send a form are the exception: they only work in the device you clicked, so nothing is sent twice. For something like *Delete* in an admin panel, turn sync off first (`Alt+S`).
 - **On Ubuntu 24.04 or later, use the .deb.** Ubuntu blocks Chromium's sandbox (which keeps the sites you open walled off) for apps without a security profile, so the AppImage runs without it there. The .deb installs that profile.
 - **Sizes** are in CSS pixels, the numbers your media queries see. Phones show a status bar and MacBooks the menu bar beside the camera, and your page starts below it, as on the real thing.
 

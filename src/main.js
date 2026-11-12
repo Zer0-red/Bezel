@@ -9,7 +9,16 @@ import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
 import { emulationFor } from './emulation.js';
-import { PAGE_SCRIPT, ratioFromConsole, ratioFromMessage, zoomFromConsole, zoomFromMessage } from './sync.js';
+import {
+  PAGE_SCRIPT,
+  clickFromConsole,
+  clickFromMessage,
+  pageFromMessage,
+  ratioFromConsole,
+  ratioFromMessage,
+  zoomFromConsole,
+  zoomFromMessage,
+} from './sync.js';
 
 // In the desktop app (electron/preload.cjs) devices are real browser views
 // instead of iframes, so every site loads and phones get mobile emulation.
@@ -264,12 +273,20 @@ function createView(rig, device) {
       syncScroll(rig, ratio);
       return;
     }
+    const click = clickFromConsole(e.message);
+    if (click) {
+      syncClick(rig, click);
+      return;
+    }
     const zoom = zoomFromConsole(e.message); // a pinch or Ctrl + wheel inside the device
     if (zoom) {
       const at = viewPoint(rig, zoom.x, zoom.y);
       zoomAt(zoom.deltaY, at.x, at.y);
     }
   });
+  // The page this device shows: a link, a form, back/forward or a route change in a single-page app.
+  view.addEventListener('did-navigate', (e) => pageChanged(rig, e.url));
+  view.addEventListener('did-navigate-in-page', (e) => e.isMainFrame && pageChanged(rig, e.url));
   view.addEventListener('did-start-loading', () => setScreenMessage(rig, ''));
   view.addEventListener('did-stop-loading', () => rig.root.classList.remove('is-loading'));
   view.addEventListener('did-fail-load', (e) => {
@@ -578,7 +595,12 @@ function renderZoom() {
   els.zoom.value = value;
 }
 
-// ── Synced scrolling ─────────────────────────────────────────
+// ── Synced scrolling, clicks and pages ───────────────────────
+
+// The device the user is using: its page has the focus (webviews fire no focus events,
+// but they do become the active element). Pages that change in other devices were
+// changed by Bezel, or by the page itself, and are not passed on.
+const isActive = (rig) => !!rig.view && document.activeElement === rig.view;
 
 /** A device was scrolled by the user: move the other visible devices to the same point. */
 function syncScroll(sourceRig, ratio) {
@@ -593,15 +615,56 @@ function syncScroll(sourceRig, ratio) {
   }
 }
 
-// Web version: pages that include public/sync.js report their scrolling here.
+/** A device was clicked by the user: click the same element in the other visible devices. */
+function syncClick(sourceRig, click) {
+  if (!state.syncScroll || state.mode !== 'grid') return;
+  for (const rig of rigs.values()) {
+    if (rig === sourceRig || rig.root.hidden || !rig.view || !rig.url) continue;
+    if (bridge) {
+      if (rig.viewReady) rig.view.executeJavaScript(`window.__bezelClick && window.__bezelClick(${JSON.stringify(click)})`).catch(() => {});
+    } else if (rig.syncHelper) {
+      rig.view.contentWindow?.postMessage({ bezel: 'clickAt', ...click }, '*');
+    }
+  }
+}
+
+/** A device now shows this page. If the user took it there, the other devices follow. */
+function pageChanged(rig, url) {
+  if (!url || !/^https?:/i.test(url) || url === rig.page) return;
+  const onlyHash = !!rig.page && rig.page.split('#')[0] === url.split('#')[0];
+  rig.page = url;
+  rig.url = url; // what this device shows, so asking it for the same page again does nothing
+  // Only the #fragment changed: an anchor link (its click is replayed in the other devices)
+  // or a page that updates its own hash while it scrolls. Neither moves the other devices.
+  if (onlyHash) return;
+  if (state.syncScroll && isActive(rig)) followPage(rig, url);
+}
+
+/** Every device opens the page the user went to in one of them, and the address bar shows it. */
+function followPage(sourceRig, url) {
+  setAddress(url);
+  for (const [id, rig] of rigs) {
+    if (rig !== sourceRig && rig.view) setRigUrl(rig, deviceById(id), url);
+  }
+  renderToolbar();
+}
+
+// Web version: pages that include public/sync.js report their scrolling, clicks and page here.
 if (!bridge) {
   window.addEventListener('message', (e) => {
     const rig = [...rigs.values()].find((r) => r.view && r.view.contentWindow === e.source);
     if (!rig) return;
+    const page = pageFromMessage(e.data);
+    if (page) pageChanged(rig, page);
     if (e.data?.bezel === 'hello') {
       rig.syncHelper = true;
-      e.source.postMessage({ bezel: 'ready' }, '*'); // the helper may now pass on pinches and Ctrl + wheel
+      e.source.postMessage({ bezel: 'ready' }, '*'); // the helper may now pass on pinches, Ctrl + wheel and clicks
       renderToolbar();
+      return;
+    }
+    const click = clickFromMessage(e.data);
+    if (click) {
+      syncClick(rig, click);
       return;
     }
     const ratio = ratioFromMessage(e.data);
@@ -633,9 +696,9 @@ function renderToolbar() {
   const helperSeen = bridge || [...rigs.values()].some((r) => r.syncHelper);
   els.sync.title = state.syncScroll
     ? helperSeen
-      ? 'Scrolling is synced across devices (Alt+S to turn off)'
-      : 'Scrolling is synced once your site includes the Bezel sync helper; see the README (Alt+S to turn off)'
-    : 'Sync scrolling across devices (Alt+S)';
+      ? 'Scrolling and clicks are synced across devices (Alt+S to turn off)'
+      : 'Scrolling and clicks are synced once your site includes the Bezel sync helper; see the README (Alt+S to turn off)'
+    : 'Sync scrolling and clicks across devices (Alt+S)';
 }
 
 /** All-devices view: bring a device into view and highlight it briefly. */
@@ -668,18 +731,21 @@ function openUrl(raw) {
     return;
   }
   els.input.setCustomValidity('');
-  state.url = url;
   if (url) state.recent = [url, ...state.recent.filter((u) => u !== url)].slice(0, MAX_RECENT);
-  persist();
+  setAddress(url);
+  for (const [id, rig] of rigs) setRigUrl(rig, deviceById(id), url);
+  renderToolbar();
+}
 
+/** The address the devices show: kept in the state (saved for next time) and in this page's ?url=. */
+function setAddress(url) {
+  state.url = url;
+  persist();
   const params = new URLSearchParams(location.search);
   if (url) params.set('url', url);
   else params.delete('url');
   const query = params.toString();
   history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}`);
-
-  for (const [id, rig] of rigs) setRigUrl(rig, deviceById(id), url);
-  renderToolbar();
 }
 
 function reloadAll() {

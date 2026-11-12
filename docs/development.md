@@ -61,8 +61,8 @@ src/screenshot.js          Screenshots in the web version
 src/devices.js             Device sizes, popular sizes (StatCounter) and setups
 src/frames.js              The drawing of each device (bezels, notch, stand)
 src/emulation.js           Phone and tablet emulation in the app
-src/sync.js                Synced scrolling in the app
-public/sync.js             Synced scrolling helper for sites in the web version
+src/sync.js                Synced scrolling and clicks in the app
+public/sync.js             Sync helper (scrolling, clicks, pages) for sites in the web version
 src/styles.css             All styles, with the dark and light colours at the top
 electron/main.cjs          The app: window, device views, emulation, updates
 electron/preload.cjs       The small bridge between the interface and the app

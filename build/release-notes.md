@@ -1,2 +1,2 @@
-- **Linux:** Bezel now comes for Linux too, as an AppImage (any distribution) and a .deb (Ubuntu, Debian, Mint). Both update themselves like the Windows app; the .deb asks for your password when you click **Install**.
-- **Updates:** if an update can't be installed, the button says so for a moment and then offers **Install** again.
+- **Clicks follow too:** with sync on, open a menu, a tab or an accordion in one device and it opens in the others, even where it's scrolled out of view. Click a link and every device goes to that page, and the address bar shows it. Buttons that send a form only work in the device you clicked, so nothing is sent twice.
+- In the browser version this works with the same sync line in your site as synced scrolling; nothing to change.
