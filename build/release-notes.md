@@ -1,3 +1,1 @@
-- **Update button in the toolbar:** at the right end of the top bar. Click it to check for updates; when a new version has downloaded it says **Install x.y.z**, and one click restarts Bezel into it. (The web version shows **Reload for x.y.z** in a tab left open when a new version is out.)
-- **Light theme:** the sun button switches to a light desk with a white toolbar; the moon switches back. Bezel remembers your choice.
-- **Favorite sites:** click the star in the address bar to keep a site. Click the address bar to pick from your favorites and recent sites, with the arrow keys or the mouse. They're still there when you open Bezel again.
+- **Screenshot button:** the camera next to the address bar (or `Alt+C`) copies a picture of the devices, with their names, to the clipboard, and a small "Copied to clipboard" note confirms it. Paste it anywhere. In the web version, Chrome and Edge ask to share the tab first.

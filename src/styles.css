@@ -1705,6 +1705,57 @@ body[data-mode='focus'] .rack {
 
 /* ── Update notice (desktop app) ──────────────────────────── */
 
+/* ── Notification ("Copied to clipboard") ──────────────────── */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 9px 16px 9px 12px;
+  translate: -50% 0;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 12px 32px var(--overlay-shadow);
+  font-weight: 560;
+  transition:
+    opacity 0.18s ease,
+    translate 0.18s ease,
+    visibility 0.18s;
+}
+
+.toast:not(.is-shown) {
+  visibility: hidden;
+  opacity: 0;
+  translate: -50% 8px;
+}
+
+.toast__icon {
+  display: inline-grid;
+  flex: none;
+  color: var(--ok);
+}
+
+.toast[data-icon='info'] .toast__icon {
+  color: var(--muted);
+}
+
+.toast__icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.25;
+}
+
+#shot-btn[aria-busy='true'] {
+  color: var(--amber-fg);
+}
+
 /* ── Small windows ────────────────────────────────────────── */
 
 @media (max-width: 900px) {
@@ -1768,6 +1819,10 @@ body[data-mode='focus'] .rack {
 
   .update-btn[data-state='checking'] .update-btn__icon {
     animation: none;
+  }
+
+  .toast {
+    transition: none;
   }
 
   .rig.is-loading .rig__status {

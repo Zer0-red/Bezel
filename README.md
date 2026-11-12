@@ -22,6 +22,7 @@ Bezel is a responsive testing tool for web development. Point it at your local d
 - **Popular screen sizes**: the most-used phone, tablet and desktop sizes worldwide, ranked with their share of browsing from StatCounter, and each one can be added with a click.
 - **Real device frames**: phones with a Dynamic Island, notch, punch-hole camera or home button; tablets; laptops with their keyboard base; monitors on a stand.
 - **Real phone screens**: like Safari and Chrome, phones show a status bar (time, signal, battery) with the island or notch inside it, and your page starts below it. The page gets the same height as on the phone, for example 402 × 812 on an iPhone 17 Pro.
+- **Screenshots**: the camera button next to the address bar (or `Alt+C`) copies a picture of the devices, with their names, to the clipboard, ready to paste into a chat, an issue or a document.
 - **Synced scrolling**: scroll one device and the others follow to the same point of the page, so you see each section on every screen at once. Turn it off with the sync button or `Alt+S`.
 - **All devices or one**: see every device side by side, or open one at full size and switch with the device bar.
 - **Rotate**: switch phones, tablets and monitors between portrait and landscape.
@@ -44,6 +45,7 @@ Both have the same interface and are built from the same code.
 | Sites it can show | Sites that allow framing (most local projects) | Any site, including Google and client sites |
 | Phones and tablets | Exact screen size | Exact size **plus** mobile user agent, pixel density (2×–3.5×) and touch |
 | Scrollbars | Hidden on every device, by clipping them off (see Limitations) | Hidden on every device |
+| Screenshots | Chrome and Edge ask to share the tab first, then copy it | One click, straight to the clipboard |
 | Synced scrolling | Needs one line in your site (see [Synced scrolling](#synced-scrolling)) | Works on every site |
 | Keyboard shortcuts | Only when Bezel's toolbar has focus | Also while you're clicking inside a device |
 | Works on | Any computer or phone with a modern browser | Windows 10 and 11 |
@@ -157,6 +159,7 @@ On the web, shortcuts work while Bezel's own interface has focus (click the tool
 | `Alt+R` | Rotate the device on screen (in the all-devices view, all phones and tablets) |
 | `Alt+Shift+R` | Reload all devices |
 | `Alt+S` | Turn synced scrolling on or off |
+| `Alt+C` | Copy a screenshot of the devices |
 | `↓` / `↑` in the address bar | Move through favorites and recent sites; `Enter` opens one, `Delete` removes a favorite |
 
 ## Limitations of the web version
@@ -166,6 +169,7 @@ These apply to the web version only; the Windows app doesn't have them.
 - **Sites that block framing won't load.** Many production sites send `X-Frame-Options` or a `frame-ancestors` CSP header. Your local projects usually don't, unless you've added those headers yourself.
 - **Only the viewport size is emulated.** The user agent, pixel density and touch input stay those of your desktop browser.
 - **Scrollbars on Windows.** Browsers draw their normal scrollbar inside another site's frame and a page can't turn it off. To hide it, each frame is made one scrollbar wider (about 15 px) and the scrollbar is clipped off, so the page lays out at the device's exact width. Media queries then see that width plus the scrollbar, and a page too short to scroll loses those 15 px on the right. On Macs, where scrollbars overlay, nothing changes. The Windows app has none of this.
+- **Screenshots ask first.** A page can't read what other sites show in its frames, so Chrome and Edge record the tab instead and ask you to share it each time. Other browsers can't do this; use Chrome, Edge or the Windows app.
 - **Synced scrolling needs a helper script** in your site (see [Synced scrolling](#synced-scrolling)).
 - **Logins on other domains may not persist.** Browsers often withhold cookies from cross-site iframes.
 
@@ -181,6 +185,7 @@ src/main.js                State, rendering, device views, shortcuts
 src/picker.js              Device bar, setups menu and device library
 src/swap-menu.js           The menu under each device's name, to swap it for another
 src/address-list.js        Favorites and recent sites under the address bar
+src/screenshot.js          Screenshots in the web version (tab capture cropped to the devices)
 src/devices.js             Device library, popular sizes (StatCounter) and setups
 src/frames.js              Geometry of each device frame (bezels, notch, stand…)
 src/emulation.js           Mobile user agents and pixel density for the Windows app
@@ -198,7 +203,8 @@ scripts/bump-version.mjs   npm run version:bump
 ## Roadmap
 
 - [ ] Synced clicks and navigation
-- [ ] Screenshots for each device
+- [ ] A screenshot of each device on its own
+- [x] Screenshot of all devices to the clipboard
 - [x] Light theme
 - [x] Favorite sites
 - [x] Synced scrolling across all devices

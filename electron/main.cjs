@@ -5,7 +5,7 @@
 // so sites that refuse to be framed (Google, most production sites) still load,
 // and phones/tablets can get a mobile user agent, pixel density and touch.
 
-const { app, BrowserWindow, ipcMain, session, shell, webContents } = require('electron');
+const { app, BrowserWindow, ClipboardItem, clipboard, ipcMain, session, shell, webContents } = require('electron');
 const path = require('node:path');
 
 const DEV_URL = process.env.BEZEL_DEV_URL; // e.g. http://localhost:5173 with `npm run app:dev`
@@ -70,7 +70,7 @@ function createWindow() {
 
 // ── Device views (<webview>) ─────────────────────────────────
 
-const SHORTCUT_CODES = new Set(['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'KeyR', 'KeyS']);
+const SHORTCUT_CODES = new Set(['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'KeyR', 'KeyS', 'KeyC']);
 
 app.on('web-contents-created', (_event, contents) => {
   if (contents.getType() === 'window') {
@@ -148,6 +148,33 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
   } catch (error) {
     console.error('Emulation failed:', error);
     return false;
+  }
+});
+
+// ── Screenshot of the devices ────────────────────────────────
+
+// The interface sends the devices' area in CSS pixels; the window's own
+// picture (device views included) is cut to it and put on the clipboard.
+ipcMain.handle('bezel:capture', async (event, rect) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents) return { ok: false };
+  const zoom = mainWindow.webContents.getZoomFactor(); // CSS pixels to window pixels
+  const [maxWidth, maxHeight] = mainWindow.getContentSize();
+  const value = (key) => Math.round(Number(rect?.[key]) * zoom);
+  const x = Math.max(0, value('x'));
+  const y = Math.max(0, value('y'));
+  const width = Math.min(maxWidth - x, value('width'));
+  const height = Math.min(maxHeight - y, value('height'));
+  if (!(width > 0 && height > 0)) return { ok: false };
+  try {
+    const image = await mainWindow.webContents.capturePage({ x, y, width, height });
+    if (image.isEmpty()) return { ok: false };
+    // Electron 45's clipboard is asynchronous and takes W3C-style ClipboardItems.
+    const png = new Blob([image.toPNG()], { type: 'image/png' });
+    await clipboard.write([new ClipboardItem({ 'image/png': png })]);
+    return { ok: true, ...image.getSize() };
+  } catch (error) {
+    console.error('Screenshot failed:', error);
+    return { ok: false };
   }
 });
 

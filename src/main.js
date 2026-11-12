@@ -4,6 +4,7 @@ import { CATEGORIES, DEFAULT_DEVICE_IDS, DEVICES, POPULAR_DEVICES } from './devi
 import { createPicker } from './picker.js';
 import { createSwapMenu } from './swap-menu.js';
 import { createAddressList } from './address-list.js';
+import { canCaptureTab, captureTab, download } from './screenshot.js';
 import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
@@ -73,6 +74,8 @@ const els = {
   reload: $('#reload-btn'),
   rotate: $('#rotate-btn'),
   sync: $('#sync-btn'),
+  shot: $('#shot-btn'),
+  toast: $('#toast'),
   modeButtons: document.querySelectorAll('.segmented button'),
   zoom: $('#zoom-select'),
   devicebar: $('#devicebar'),
@@ -623,6 +626,7 @@ els.input.addEventListener('input', () => els.input.setCustomValidity(''));
 els.reload.addEventListener('click', reloadAll);
 els.rotate.addEventListener('click', rotate);
 els.sync.addEventListener('click', toggleSync);
+els.shot.addEventListener('click', takeScreenshot);
 els.theme.addEventListener('click', toggleTheme);
 els.modeButtons.forEach((btn) => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
 els.zoom.addEventListener('change', () => {
@@ -686,7 +690,91 @@ function runShortcut(code, shift) {
     toggleSync();
     return true;
   }
+  if (code === 'KeyC') {
+    takeScreenshot();
+    return true;
+  }
   return false;
+}
+
+// ── Screenshot of the devices ────────────────────────────────
+
+const TOAST_ICONS = {
+  check: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg>',
+};
+let toastTimer = 0;
+
+/** A short confirmation at the bottom of the window. */
+function notify(text, icon = 'check') {
+  clearTimeout(toastTimer);
+  els.toast.querySelector('.toast__icon').innerHTML = TOAST_ICONS[icon];
+  els.toast.dataset.icon = icon;
+  els.toast.querySelector('.toast__text').textContent = text;
+  els.toast.classList.add('is-shown');
+  toastTimer = setTimeout(() => hideToast(), icon === 'check' ? 2200 : 4500);
+}
+
+function hideToast({ instant = false } = {}) {
+  clearTimeout(toastTimer);
+  if (instant) els.toast.style.transition = 'none';
+  els.toast.classList.remove('is-shown');
+  if (instant) {
+    void els.toast.offsetWidth; // apply the change before the transition comes back
+    els.toast.style.transition = '';
+  }
+}
+
+/** The devices with their captions and a margin of desk, in viewport CSS pixels; only what's visible. */
+function captureArea() {
+  const shown = [...rigs.values()].filter((r) => !r.root.hidden);
+  if (!shown.length) return null;
+  const stage = els.stage.getBoundingClientRect();
+  const boxes = shown.map((r) => r.root.getBoundingClientRect());
+  const margin = 28;
+  const left = Math.max(stage.left, Math.min(...boxes.map((b) => b.left)) - margin);
+  const top = Math.max(stage.top, Math.min(...boxes.map((b) => b.top)) - margin);
+  const right = Math.min(stage.left + els.stage.clientWidth, Math.max(...boxes.map((b) => b.right)) + margin);
+  const bottom = Math.min(stage.top + els.stage.clientHeight, Math.max(...boxes.map((b) => b.bottom)) + margin);
+  if (right <= left || bottom <= top) return null;
+  return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) };
+}
+
+let capturing = false;
+
+async function takeScreenshot() {
+  if (capturing) return;
+  if (!captureArea()) return notify('Add a device to take a screenshot.', 'info');
+  if (!bridge && !canCaptureTab()) return notify('Screenshots work in Chrome and Edge, or in the Windows app.', 'info');
+  capturing = true;
+  els.shot.setAttribute('aria-busy', 'true');
+  hideToast({ instant: true }); // never in the picture
+  try {
+    if (bridge) {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const result = await bridge.capture(captureArea());
+      if (result?.ok) notify('Copied to clipboard');
+      else notify('Couldn’t take the screenshot. Try again.', 'info');
+      return;
+    }
+    // Web: the browser asks to share this tab, then one frame is cut to the devices.
+    const blob = await captureTab(els.stage, captureArea);
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      notify('Copied to clipboard');
+    } catch {
+      download(blob, `bezel-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.png`);
+      notify('The browser blocked the clipboard, so the screenshot was downloaded.', 'info');
+    }
+  } catch (error) {
+    if (error?.name !== 'NotAllowedError' && error?.name !== 'AbortError') {
+      console.error('Screenshot failed:', error);
+      notify('Couldn’t take the screenshot. Share this tab when the browser asks.', 'info');
+    } // otherwise the person chose not to share the tab
+  } finally {
+    capturing = false;
+    els.shot.removeAttribute('aria-busy');
+  }
 }
 
 // ── Theme ────────────────────────────────────────────────────

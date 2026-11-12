@@ -55,6 +55,9 @@
       </form>
 
       <div class="controls">
+        <button class="icon-btn" id="shot-btn" type="button" aria-label="Copy a screenshot of the devices" title="Copy a screenshot of the devices (Alt+C)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5A1.5 1.5 0 0 1 5 7h2.4l1.5-2.2h6.2L16.6 7H19a1.5 1.5 0 0 1 1.5 1.5v9.5A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18z" /><circle cx="12" cy="13" r="3.6" /></svg>
+        </button>
         <button class="icon-btn" id="reload-btn" type="button" aria-label="Reload all devices" title="Reload all devices (Alt+Shift+R)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></svg>
         </button>
@@ -154,6 +157,12 @@
         <button type="button" class="btn btn--primary" id="library-done">Done</button>
       </div>
     </dialog>
+
+    <!-- Short confirmations, like "Copied to clipboard" -->
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <span class="toast__icon" aria-hidden="true"></span>
+      <span class="toast__text"></span>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

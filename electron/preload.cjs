@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld('bezel', {
   updateStatus: () => ipcRenderer.invoke('bezel:update-status'),
   installUpdate: () => ipcRenderer.send('bezel:install-update'),
   checkForUpdates: () => ipcRenderer.invoke('bezel:check-updates'),
+  /** Copies this area of the window (CSS pixels: { x, y, width, height }) to the clipboard as an image. */
+  capture: (rect) => ipcRenderer.invoke('bezel:capture', rect),
 });
