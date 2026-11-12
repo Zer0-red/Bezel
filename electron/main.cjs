@@ -5,7 +5,7 @@
 // so sites that refuse to be framed (Google, most production sites) still load,
 // and phones/tablets can get a mobile user agent, pixel density and touch.
 
-const { app, BrowserWindow, ClipboardItem, clipboard, ipcMain, session, shell, webContents } = require('electron');
+const { app, BrowserWindow, ClipboardItem, clipboard, ipcMain, screen, session, shell, webContents } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -27,9 +27,11 @@ const isWebUrl = (value) => {
 let mainWindow = null;
 
 function createWindow() {
+  // 1440 × 900, but never bigger than the screen: on a 1366 × 768 laptop a bigger window would hang off it.
+  const area = screen.getPrimaryDisplay().workAreaSize;
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    width: Math.min(1440, area.width),
+    height: Math.min(900, area.height),
     minWidth: 720,
     minHeight: 480,
     title: 'Bezel',

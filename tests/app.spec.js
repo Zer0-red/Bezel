@@ -18,19 +18,28 @@ const inViews = (code) =>
   win.evaluate((code) => Promise.all([...document.querySelectorAll('webview')].map((v) => v.executeJavaScript(code))), code);
 const inView = (index, code) => win.evaluate(([i, code]) => document.querySelectorAll('webview')[i].executeJavaScript(code), [index, code]);
 
-/** Clicks an element inside a device with the mouse, at its place on screen. */
+// Mouse input goes straight to the device's page, as real, trusted events at the page's own
+// coordinates. (Sending it to Bezel's window and letting Chromium route it into the scaled,
+// emulated device views is unreliable on a bare virtual display: clicks drift or get lost.)
+const deviceId = (index) => win.evaluate((i) => document.querySelectorAll('webview')[i].getWebContentsId(), index);
+const sendInput = async (index, events) =>
+  app.evaluate(({ webContents }, [id, events]) => events.forEach((e) => webContents.fromId(id).sendInputEvent(e)), [await deviceId(index), events]);
+
+/** Clicks an element inside a device with the mouse. */
 async function clickIn(index, selector) {
-  const host = await win.evaluate((i) => {
-    const r = document.querySelectorAll('webview')[i].getBoundingClientRect();
-    return { x: r.x, y: r.y, w: r.width };
-  }, index);
-  const el = await inView(
+  const { x, y } = await inView(
     index,
-    `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, vw: innerWidth }; })()`,
+    `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()`,
   );
-  const scale = host.w / el.vw;
-  await win.mouse.click(host.x + el.x * scale, host.y + el.y * scale);
+  await sendInput(index, [
+    { type: 'mouseMove', x, y },
+    { type: 'mouseDown', x, y, button: 'left', clickCount: 1 },
+    { type: 'mouseUp', x, y, button: 'left', clickCount: 1 },
+  ]);
 }
+
+/** Turns the mouse wheel over a device (down by `pixels`). */
+const wheelIn = (index, pixels) => sendInput(index, [{ type: 'mouseWheel', x: 200, y: 300, deltaX: 0, deltaY: -pixels, canScroll: true }]);
 
 async function openSite() {
   await win.fill('#address-input', SITE.replace('http://', ''));
@@ -76,6 +85,15 @@ test('the window has no Node, and device views cannot open local files', async (
   expect(await inView(PHONE, 'location.protocol')).toBe('http:');
 });
 
+test('the window fits on the screen', async () => {
+  const { bounds, area } = await app.evaluate(({ BrowserWindow, screen }) => ({
+    bounds: BrowserWindow.getAllWindows()[0].getBounds(),
+    area: screen.getPrimaryDisplay().workAreaSize,
+  }));
+  expect(bounds.width).toBeLessThanOrEqual(area.width);
+  expect(bounds.height).toBeLessThanOrEqual(area.height);
+});
+
 test('phones and tablets are emulated: size, pixel density, touch, no hover', async () => {
   const media = await inViews(
     "({ w: innerWidth, dpr: devicePixelRatio, touch: navigator.maxTouchPoints, hoverNone: matchMedia('(hover: none)').matches, coarse: matchMedia('(pointer: coarse)').matches })",
@@ -86,12 +104,7 @@ test('phones and tablets are emulated: size, pixel density, touch, no hover', as
 });
 
 test('scrolling with the wheel moves the other devices', async () => {
-  const box = await win.evaluate((i) => {
-    const r = document.querySelectorAll('webview')[i].getBoundingClientRect();
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-  }, LAPTOP);
-  await win.mouse.move(box.x, box.y);
-  await win.mouse.wheel(0, 900);
+  await wheelIn(LAPTOP, 900);
   await expect.poll(async () => (await inViews('scrollY')).every((y) => y > 0)).toBe(true);
 });
 
