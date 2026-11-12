@@ -1,2 +1,3 @@
-- **Synced scrolling:** scroll one device and the others follow to the same point of the page, so you see each section on every screen at once. Turn it on or off with the new button in the toolbar or `Alt+S`. In the app it works on every site; the web version needs one line in your site (see the README).
-- **Device names stay readable:** the caption under each device shows the full name, with the size and zoom on the line below.
+- **Swap a device from its name:** click the name under any device, point at Phones, Tablets, Laptops or Desktops, then a series (iPhone, Pixel, Galaxy, MacBook…), and pick a device. It takes the old one's place, keeps landscape if it was turned, and devices already on the desk are greyed out.
+- **No scrollbars on laptops and monitors either:** every device now shows the page without a scrollbar, in the app and in the web version.
+- **The row of devices fits exactly:** a rounding error could leave a one-pixel sideways scrollbar under the desk.

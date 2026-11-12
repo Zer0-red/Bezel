@@ -18,6 +18,7 @@ Bezel is a responsive testing tool for web development. Point it at your local d
 
 - **Setups**: one click for *Phone, tablet, laptop*, *Three phones*, *Phones, small to large*, *Most popular sizes*, *Apple*, *MacBooks* or *Tablets*. Save your own combinations with **Save current**.
 - **Device library**: current iPhones (including iPhone 18 Pro Max and iPhone Air), Pixel and Galaxy phones, iPads, MacBook Air and Pro 13, 14, 15 and 16, Windows laptops and monitors. Search by name or size, such as `pixel` or `390`.
+- **Switch a device in place**: click the name under a device, point at *Phones*, *Tablets*, *Laptops* or *Desktops*, then a series such as iPhone, Pixel, Galaxy or MacBook, and pick a device. It takes the old one's place.
 - **Popular screen sizes**: the most-used phone, tablet and desktop sizes worldwide, ranked with their share of browsing from StatCounter, and each one can be added with a click.
 - **Real device frames**: phones with a Dynamic Island, notch, punch-hole camera or home button; tablets; laptops with their keyboard base; monitors on a stand.
 - **Real phone screens**: like Safari and Chrome, phones show a status bar (time, signal, battery) with the island or notch inside it, and your page starts below it. The page gets the same height as on the phone, for example 402 × 812 on an iPhone 17 Pro.
@@ -39,7 +40,7 @@ Both have the same interface and are built from the same code.
 | Install | Nothing, just open the link | One installer, then it updates itself |
 | Sites it can show | Sites that allow framing (most local projects) | Any site, including Google and client sites |
 | Phones and tablets | Exact screen size | Exact size **plus** mobile user agent, pixel density (2×–3.5×) and touch |
-| Scrollbars | Hidden on phones, tablets and Macs, by clipping them off (see Limitations) | Overlay scrollbars like the real device, on phones, tablets and Macs |
+| Scrollbars | Hidden on every device, by clipping them off (see Limitations) | Hidden on every device |
 | Synced scrolling | Needs one line in your site (see [Synced scrolling](#synced-scrolling)) | Works on every site |
 | Keyboard shortcuts | Only when Bezel's toolbar has focus | Also while you're clicking inside a device |
 | Works on | Any computer or phone with a modern browser | Windows 10 and 11 |
@@ -115,8 +116,9 @@ Creating a `vX.Y.Z` release on the Releases page (or pushing the tag) also start
 2. Type its address in Bezel's address bar and press **Open**.
 3. Pick a setup from the menu on the left of the device bar, or use **Add device** to choose devices and popular sizes.
 4. Click a device's name in the device bar to jump to it. In **One device** view, the device bar switches devices.
-5. Use the rotate button under a device, or `Alt+R`, to switch between portrait and landscape.
-6. Scroll any device and the others follow. The sync button in the toolbar (or `Alt+S`) turns this on and off.
+5. To swap a device for another, click its name under it and pick the new one from the menu (Phones → iPhone → iPhone 17 Pro Max, say). Devices already on the desk are greyed out.
+6. Use the rotate button under a device, or `Alt+R`, to switch between portrait and landscape.
+7. Scroll any device and the others follow. The sync button in the toolbar (or `Alt+S`) turns this on and off.
 
 ### Synced scrolling
 
@@ -159,7 +161,7 @@ These apply to the web version only; the Windows app doesn't have them.
 
 - **Sites that block framing won't load.** Many production sites send `X-Frame-Options` or a `frame-ancestors` CSP header. Your local projects usually don't, unless you've added those headers yourself.
 - **Only the viewport size is emulated.** The user agent, pixel density and touch input stay those of your desktop browser.
-- **Scrollbars on Windows.** Browsers draw their normal scrollbar inside another site's frame and a page can't turn it off. To hide it on phones, tablets and Macs, the frame is made one scrollbar wider (about 15 px) and the scrollbar is clipped off, so the page lays out at the device's exact width. Media queries then see that width plus the scrollbar, and a page too short to scroll loses those 15 px on the right. On Macs, where scrollbars overlay, nothing changes. The Windows app has none of this.
+- **Scrollbars on Windows.** Browsers draw their normal scrollbar inside another site's frame and a page can't turn it off. To hide it, each frame is made one scrollbar wider (about 15 px) and the scrollbar is clipped off, so the page lays out at the device's exact width. Media queries then see that width plus the scrollbar, and a page too short to scroll loses those 15 px on the right. On Macs, where scrollbars overlay, nothing changes. The Windows app has none of this.
 - **Synced scrolling needs a helper script** in your site (see [Synced scrolling](#synced-scrolling)).
 - **Logins on other domains may not persist.** Browsers often withhold cookies from cross-site iframes.
 
@@ -173,6 +175,7 @@ The version shows top left, next to the name. Every update adds 0.0.1 (`npm run 
 index.html                 App shell: toolbar, device bar, stage, setups menu, device library
 src/main.js                State, rendering, device views, shortcuts
 src/picker.js              Device bar, setups menu and device library
+src/swap-menu.js           The menu under each device's name, to swap it for another
 src/devices.js             Device library, popular sizes (StatCounter) and setups
 src/frames.js              Geometry of each device frame (bezels, notch, stand…)
 src/emulation.js           Mobile user agents and pixel density for the Windows app

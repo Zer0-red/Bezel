@@ -12,14 +12,15 @@ function androidUa() {
 
 const MAC = IPAD; // Safari on macOS
 
-/** Emulation for a device, or null for other laptops and monitors (plain desktop browser). */
+/** Emulation for a device. Every device hides its scrollbar, as the page would look on a phone or a Mac. */
 export function emulationFor(device) {
   // Apple laptops and iMacs: Retina density, overlay scrollbars and Safari, but no touch.
   if (device.brand === 'Apple' && (device.category === 'Laptop' || device.category === 'Desktop')) {
     return { userAgent: MAC, mobile: false, touch: false, hideScrollbars: true, dpr: 2 };
   }
   const kind = device.ua ?? (device.category === 'Mobile' ? 'android' : device.category === 'Tablet' ? 'ipad' : null);
-  if (!kind) return null;
+  // Windows laptops and monitors: this computer's own browser and pixel density (dpr 0 keeps it), no scrollbar.
+  if (!kind) return { userAgent: null, mobile: false, touch: false, hideScrollbars: true, dpr: 0 };
   const userAgent = kind === 'ios' ? IOS : kind === 'ipad' ? IPAD : androidUa();
   return {
     userAgent,

@@ -514,6 +514,136 @@ svg {
   border-radius: var(--radius-m);
 }
 
+/* ── Device menu (click a device's name) ──────────────────── */
+
+/* The popover is only the container; each panel is placed next to its parent item. */
+.cascade {
+  position: fixed;
+  inset: 0 auto auto 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background: none;
+  border: 0;
+}
+
+.cascade__panel {
+  position: fixed;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 6px;
+  overflow-y: auto;
+  background: #22262e;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.5);
+  scrollbar-width: thin;
+}
+
+.cascade__title {
+  max-width: 280px;
+  margin: 4px 10px 6px 30px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--step--1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cascade__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cascade__item:hover,
+.cascade__item:focus-visible,
+.cascade__item[aria-expanded='true'] {
+  background: #2c313a;
+}
+
+.cascade__item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Marks the current device, and the type and series it belongs to. */
+.cascade__mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--amber);
+}
+
+.cascade__mark svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.25;
+}
+
+.cascade__item[aria-checked='false'] .cascade__mark svg {
+  visibility: hidden;
+}
+
+.cascade__item[data-current='true'] .cascade__mark::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.cascade__item[aria-checked='true'] .cascade__label,
+.cascade__item[data-current='true'] .cascade__label {
+  color: var(--amber-ink);
+}
+
+.cascade__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cascade__meta {
+  flex: none;
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+.cascade__arrow {
+  display: inline-grid;
+  flex: none;
+  color: var(--muted);
+}
+
+.cascade__arrow svg {
+  width: 14px;
+  height: 14px;
+}
+
+.cascade__item[aria-disabled='true'] {
+  color: #6f7681;
+  cursor: default;
+}
+
+.cascade__item[aria-disabled='true']:hover {
+  background: transparent;
+}
+
 /* ── Device library ───────────────────────────────────────── */
 
 .library {
@@ -888,18 +1018,42 @@ svg {
   animation: pulse 1s ease-in-out infinite;
 }
 
+/* The name opens the device menu. */
 .rig__name {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
   padding: 0;
   background: none;
   border: 0;
   border-radius: 4px;
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.rig__name:hover {
+.rig__name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rig__name-chevron {
+  display: inline-grid;
+  flex: none;
+  color: var(--muted);
+}
+
+.rig__name-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rig__name:hover,
+.rig__name[aria-expanded='true'],
+.rig__name:hover .rig__name-chevron,
+.rig__name[aria-expanded='true'] .rig__name-chevron {
   color: var(--amber-ink);
 }
 

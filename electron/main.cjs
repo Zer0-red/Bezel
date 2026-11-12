@@ -113,7 +113,8 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
   if (!contents || contents.getType() !== 'webview' || contents.hostWebContents !== event.sender) return false;
 
   const size = (value) => Math.min(8000, Math.max(0, Math.round(Number(value) || 0)));
-  const dpr = Math.min(4, Math.max(1, Number(options.dpr) || 1));
+  // 0 keeps this computer's own pixel density (Windows laptops and monitors).
+  const dpr = Number(options.dpr) === 0 ? 0 : Math.min(4, Math.max(1, Number(options.dpr) || 1));
   const width = size(options.width); // the page's viewport (below a phone's status bar)
   const height = size(options.height);
   const screenWidth = size(options.screenWidth) || width; // the whole screen
@@ -133,7 +134,7 @@ ipcMain.handle('bezel:emulate', async (event, id, options = {}) => {
       screenWidth,
       screenHeight,
     });
-    // Phones, tablets and Macs use overlay scrollbars that take no space.
+    // No scrollbar on any device (phones, tablets and Macs use overlay scrollbars that take no space).
     await contents.debugger.sendCommand('Emulation.setScrollbarsHidden', { hidden: Boolean(options.hideScrollbars) });
     await contents.debugger.sendCommand('Emulation.setTouchEmulationEnabled', {
       enabled: touch,

@@ -2,6 +2,7 @@ import '@fontsource-variable/instrument-sans';
 import './styles.css';
 import { CATEGORIES, DEFAULT_DEVICE_IDS, DEVICES, POPULAR_DEVICES } from './devices.js';
 import { createPicker } from './picker.js';
+import { createSwapMenu } from './swap-menu.js';
 import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
@@ -136,12 +137,23 @@ function createRig(device) {
   const deviceEl = h('div', { class: 'device' }, body);
   const frame = h('div', { class: 'rig__frame' }, deviceEl);
 
-  const name = h('button', {
-    class: 'rig__name',
-    type: 'button',
-    text: device.name,
-    title: `View ${device.name} on its own`,
-    onclick: () => focusDevice(device.id),
+  // The name opens the device menu, to put another device in this one's place.
+  const name = h(
+    'button',
+    { class: 'rig__name', type: 'button', title: 'Switch to another device', 'aria-haspopup': 'menu', 'aria-expanded': 'false' },
+    h('span', { class: 'rig__name-text', text: device.name }),
+  );
+  const chevron = h('span', { class: 'rig__name-chevron', 'aria-hidden': 'true' });
+  chevron.innerHTML = ICONS.chevron;
+  name.append(chevron);
+  // A click outside closes the menu before this button's click arrives, so remember whether it was open.
+  let menuWasOpen = false;
+  name.addEventListener('pointerdown', () => (menuWasOpen = swapMenu.isOpenFor(name)));
+  name.addEventListener('click', () => {
+    const wasOpen = menuWasOpen || swapMenu.isOpenFor(name);
+    menuWasOpen = false;
+    if (wasOpen) swapMenu.close();
+    else swapMenu.open(name, device.id);
   });
   const dims = h('span', { class: 'rig__dims' });
   const scale = h('span', { class: 'rig__scale' });
@@ -184,9 +196,9 @@ function createView(rig, device) {
   if (!bridge) {
     const frame = h('iframe', { title: `${device.name} preview`, allow: 'fullscreen; clipboard-write' });
     frame.addEventListener('load', () => rig.root.classList.remove('is-loading'));
-    // Phones, tablets and Macs have overlay scrollbars. On the web, a desktop scrollbar
-    // inside the frame can't be removed, so the frame is made one scrollbar wider and the
-    // scrollbar is clipped off: the page lays out at the device's exact width.
+    // Devices show no scrollbar. On the web, a desktop scrollbar inside the frame can't be
+    // removed, so the frame is made one scrollbar wider and the scrollbar is clipped off:
+    // the page lays out at the device's exact width.
     if (SCROLLBAR_WIDTH && emulationFor(device)?.hideScrollbars) rig.screen.classList.add('hide-scrollbar');
     return frame;
   }
@@ -395,13 +407,18 @@ function layout() {
   }
 
   // Second pass (all devices, Fit): shrink the whole row together so it fits the width.
+  // Captions keep a minimum width, so only the devices wider than that shrink; solve for them.
   if (state.zoom === 'fit' && state.mode === 'grid' && shown.length) {
+    const target = availW - 1; // a pixel of slack for sub-pixel rounding
     let factor = 1;
-    for (let i = 0; i < 3; i += 1) {
-      const rowWidth =
-        shown.reduce((sum, d) => sum + Math.max(d.g.outerW * d.s * factor, CAPTION_MIN_WIDTH), 0) + gap * (shown.length - 1);
-      if (rowWidth <= availW) break;
-      factor = Math.max(MIN_ROW_SHRINK, factor * (availW / rowWidth));
+    for (let i = 0; i < 4; i += 1) {
+      const widths = shown.map((d) => d.g.outerW * d.s * factor);
+      const rowWidth = widths.reduce((sum, w) => sum + Math.max(w, CAPTION_MIN_WIDTH), 0) + gap * (shown.length - 1);
+      if (rowWidth <= target) break;
+      const scalable = widths.filter((w) => w > CAPTION_MIN_WIDTH).reduce((sum, w) => sum + w, 0);
+      if (!scalable) break;
+      factor = Math.max(MIN_ROW_SHRINK, factor * ((target - (rowWidth - scalable)) / scalable));
+      if (factor === MIN_ROW_SHRINK) break;
     }
     for (const d of shown) d.s *= factor;
   }
@@ -544,6 +561,24 @@ function focusCategory(category) {
   if (pick) focusDevice(pick);
 }
 
+/** The device menu under a device: put another device in its place. */
+function replaceDevice(oldId, newId) {
+  const next = deviceById(newId);
+  if (!next || oldId === newId) return;
+  if (state.selected.includes(oldId)) {
+    state.selected = state.selected.includes(newId)
+      ? state.selected.filter((id) => id !== oldId)
+      : state.selected.map((id) => (id === oldId ? newId : id));
+  }
+  // A phone turned sideways stays sideways when swapped for another phone or tablet.
+  if (canRotate(next) && canRotate(deviceById(oldId) ?? next)) state.rotated[newId] = !!state.rotated[oldId];
+  if (state.focusId === oldId) state.focusId = newId;
+  if (state.mode === 'focus') state.lastByCategory[next.category] = newId;
+  persist();
+  render();
+  if (state.mode === 'grid') scrollToDevice(newId);
+}
+
 function toggleSelected(id) {
   state.selected = state.selected.includes(id) ? state.selected.filter((x) => x !== id) : [...state.selected, id];
   persist();
@@ -586,6 +621,9 @@ els.zoom.addEventListener('change', () => {
   layout();
 });
 
+// The device menu is placed next to a caption; it closes when the desk scrolls.
+els.stage.addEventListener('scroll', () => swapMenu.close(), { passive: true });
+
 // Scroll the row of devices sideways with a normal mouse wheel.
 els.stage.addEventListener(
   'wheel',
@@ -603,7 +641,7 @@ els.stage.addEventListener(
 
 document.addEventListener('keydown', (e) => {
   const typing = e.target.closest?.('input, textarea, select, [contenteditable="true"]');
-  if (picker.isOpen()) return;
+  if (picker.isOpen() || swapMenu.isOpen()) return;
 
   if (e.key === '/' && !typing && !e.altKey && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
@@ -621,7 +659,7 @@ document.addEventListener('keydown', (e) => {
 
 /** Alt shortcuts. Returns true when the key was one of Bezel's. */
 function runShortcut(code, shift) {
-  if (picker.isOpen()) return false;
+  if (picker.isOpen() || swapMenu.isOpen()) return false;
   const digit = /^Digit([0-5])$/.exec(code);
   if (digit) {
     const n = Number(digit[1]);
@@ -683,6 +721,8 @@ new ResizeObserver(() => {
   cancelAnimationFrame(frameRequest);
   frameRequest = requestAnimationFrame(layout);
 }).observe(els.stage);
+
+const swapMenu = createSwapMenu({ state, h, allDevices, deviceById, replaceDevice });
 
 const picker = createPicker({
   state,

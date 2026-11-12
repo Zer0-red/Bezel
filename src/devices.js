@@ -134,6 +134,8 @@ export const POPULAR_DEVICES = POPULAR.flatMap((list) =>
       height: size.height,
       ua: category === 'Mobile' ? 'android' : category === 'Tablet' ? 'ipad' : undefined,
       dpr: category === 'Mobile' ? 3 : category === 'Tablet' ? 2 : undefined,
+      share: size.share,
+      hint: size.hint,
     };
   }),
 );
