@@ -224,13 +224,148 @@ svg {
   width: calc(100% + var(--scrollbar-w, 0px));
 }
 
+/* Tabs and the address bar, centred between the name and the controls. */
+.site {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* ── Tabs: sites open on the same devices ─────────────────── */
+
+.tabs {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 3px;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.tabs__list {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+  border-radius: 7px;
+}
+
+.tab:hover {
+  background: var(--hover);
+}
+
+.tab.is-active {
+  background: var(--raised);
+  box-shadow: var(--raised-shadow);
+}
+
+.tab__btn {
+  display: flex;
+  align-items: center;
+  min-width: 52px;
+  max-width: 230px;
+  height: 28px;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  font-weight: 540;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tab__btn:focus-visible {
+  outline-offset: -2px;
+}
+
+.tab.is-active .tab__btn {
+  color: var(--text);
+}
+
+.tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The close button shows on the tab in front and on the one under the pointer. */
+.tab__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 4px 0 -8px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.tab__close svg {
+  width: 13px;
+  height: 13px;
+}
+
+.tab.is-active .tab__close,
+.tab:hover .tab__close {
+  opacity: 1;
+}
+
+.tab__close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tabs__new {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+}
+
+.tabs__new svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tabs__new:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tabs__new:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .address {
   position: relative;
   display: flex;
   flex: 1;
   min-width: 220px;
   max-width: 720px;
-  margin-inline: auto;
 }
 
 .address__field {
@@ -1517,6 +1652,13 @@ svg {
   background: #fff;
 }
 
+/* Pages of the tabs behind: still laid out at the device's size (so they keep their place and
+   scrolling), just not shown. Hidden this way rather than display: none, which would resize them. */
+.device__screen .is-background {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Phone status bar (time, signal, wifi, battery) above the page. */
 .statusbar {
   position: absolute;
@@ -1966,9 +2108,12 @@ body[data-mode='focus'] .rack {
     flex-wrap: wrap;
   }
 
-  .address {
+  .site {
     order: 3;
     flex-basis: 100%;
+  }
+
+  .address {
     max-width: none;
   }
 

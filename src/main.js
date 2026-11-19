@@ -8,6 +8,7 @@ import { canCaptureTab, captureTab, download } from './screenshot.js';
 import { canRotate, geometry } from './frames.js';
 import { loadState, saveState } from './storage.js';
 import { normalizeUrl } from './url.js';
+import { MAX_TABS, newTabId, restoreTabs, tabLabel } from './tabs.js';
 import { emulationFor } from './emulation.js';
 import {
   PAGE_SCRIPT,
@@ -39,7 +40,9 @@ const ZOOM_MAX = 2;
 const FIT_ZOOM_MIN = 0.2;
 
 const defaults = {
-  url: '',
+  url: '', // the active tab's address
+  tabs: [], // [{ id, url }]: sites open on the same devices, like a browser's tabs (the admin beside the site)
+  activeTab: '',
   recent: [],
   selected: [...DEFAULT_DEVICE_IDS],
   mode: 'grid', // 'grid' = all devices, 'focus' = one device
@@ -76,9 +79,13 @@ if (!['dark', 'light'].includes(state.theme)) state.theme = 'dark';
 if (state.zoom !== 'fit' && !(Number.isFinite(state.zoom) && state.zoom >= ZOOM_MIN && state.zoom <= ZOOM_MAX)) state.zoom = 'fit';
 if (!(Number.isFinite(state.fitZoom) && state.fitZoom >= FIT_ZOOM_MIN && state.fitZoom <= 20)) state.fitZoom = 1;
 
-// A ?url= link wins over the saved address.
+Object.assign(state, restoreTabs(state)); // a state saved before tabs had just the one address
+const activeTab = () => state.tabs.find((t) => t.id === state.activeTab);
+
+// A ?url= link wins over the saved address (it opens in the tab that was in front).
 const linkedUrl = normalizeUrl(new URLSearchParams(location.search).get('url'));
-if (linkedUrl) state.url = linkedUrl;
+if (linkedUrl) activeTab().url = linkedUrl;
+state.url = activeTab().url;
 
 const persist = () => saveState(state);
 
@@ -87,6 +94,8 @@ const persist = () => saveState(state);
 const $ = (sel) => document.querySelector(sel);
 const els = {
   form: $('#address-form'),
+  tabList: $('#tab-list'),
+  newTab: $('#new-tab-btn'),
   input: $('#address-input'),
   reload: $('#reload-btn'),
   rotate: $('#rotate-btn'),
@@ -171,8 +180,14 @@ function menuBarElement(g) {
   return bar;
 }
 
-/** id → { root, frame, device, body, screen, view, url, name, dims, scale, rotateBtn, focusBtn, geomKey } */
+/** id → { id, root, frame, device, body, screen, panes, name, dims, scale, rotateBtn, focusBtn, geomKey, emulation } */
 const rigs = new Map();
+
+// Each device has a page per tab (a pane): the active tab's is in front, the others stay
+// loaded behind it, hidden, so switching tabs is instant and keeps logins, scrolling and forms.
+/** pane: { rig, tab (id), view, url, viewReady, page, syncHelper, message, loading } */
+const activePane = (rig) => rig.panes.get(state.activeTab);
+const allPanes = () => [...rigs.values()].flatMap((rig) => [...rig.panes.values()]);
 
 function createRig(device) {
   const screen = h('div', { class: 'device__screen' });
@@ -214,14 +229,40 @@ function createRig(device) {
   );
 
   const root = h('figure', { class: 'rig', 'data-id': device.id }, frame, caption);
-  const rig = { root, frame, device: deviceEl, body, screen, view: null, url: '', name, dims, scale, rotateBtn, focusBtn, geomKey: '' };
-  setRigUrl(rig, device, state.url);
+  const rig = { id: device.id, root, frame, device: deviceEl, body, screen, panes: new Map(), name, dims, scale, rotateBtn, focusBtn, geomKey: '' };
+  showActivePane(rig);
   return rig;
 }
 
-function setScreenMessage(rig, text) {
+/** Puts the active tab's page in front in this device (opening it the first time); the other tabs' pages stay loaded behind. */
+function showActivePane(rig) {
+  const tab = activeTab();
+  let pane = rig.panes.get(tab.id);
+  if (!pane) {
+    pane = { rig, tab: tab.id, view: null, url: '', viewReady: false, page: '', syncHelper: false, message: '', loading: false };
+    rig.panes.set(tab.id, pane);
+    setPaneUrl(pane, tab.url);
+  }
+  for (const p of rig.panes.values()) p.view?.classList.toggle('is-background', p !== pane);
+  renderScreen(rig);
+}
+
+/** The message and loading light of the page in front. */
+function renderScreen(rig) {
+  const pane = activePane(rig);
   rig.screen.querySelector('.screen-empty')?.remove();
-  if (text) rig.screen.append(h('div', { class: 'screen-empty' }, h('p', { text })));
+  if (pane?.message) rig.screen.append(h('div', { class: 'screen-empty' }, h('p', { text: pane.message })));
+  rig.root.classList.toggle('is-loading', !!pane?.loading);
+}
+
+function setScreenMessage(pane, text) {
+  pane.message = text;
+  if (pane.tab === state.activeTab) renderScreen(pane.rig);
+}
+
+function setLoading(pane, loading) {
+  pane.loading = loading;
+  if (pane.tab === state.activeTab) renderScreen(pane.rig);
 }
 
 /** The web page inside a device: an iframe on the web, a real browser view in the app. */
@@ -235,10 +276,11 @@ const SCROLLBAR_WIDTH = (() => {
 })();
 document.documentElement.style.setProperty('--scrollbar-w', `${SCROLLBAR_WIDTH}px`);
 
-function createView(rig, device) {
+function createView(pane, device) {
+  const { rig } = pane;
   if (!bridge) {
     const frame = h('iframe', { title: `${device.name} preview`, allow: 'fullscreen; clipboard-write' });
-    frame.addEventListener('load', () => rig.root.classList.remove('is-loading'));
+    frame.addEventListener('load', () => setLoading(pane, false));
     // Devices show no scrollbar. On the web, a desktop scrollbar inside the frame can't be
     // removed, so the frame is made one scrollbar wider and the scrollbar is clipped off:
     // the page lays out at the device's exact width.
@@ -260,54 +302,55 @@ function createView(rig, device) {
   view.addEventListener('dom-ready', async () => {
     if (ready) return;
     ready = true;
-    rig.viewReady = true;
-    await applyEmulation(rig, device);
-    if (rig.url) view.loadURL(rig.url).catch(() => {});
+    pane.viewReady = true;
+    await applyEmulation(pane, device);
+    if (pane.url) view.loadURL(pane.url).catch(() => {});
   });
   view.addEventListener('dom-ready', () => {
-    if (rig.url && view.getURL() !== 'about:blank') view.executeJavaScript(PAGE_SCRIPT).catch(() => {});
+    if (pane.url && view.getURL() !== 'about:blank') view.executeJavaScript(PAGE_SCRIPT).catch(() => {});
   });
   view.addEventListener('console-message', (e) => {
     const scroll = scrollFromConsole(e.message);
     if (scroll) {
-      syncScroll(rig, scroll);
+      syncScroll(pane, scroll);
       return;
     }
     const click = clickFromConsole(e.message);
     if (click) {
-      syncClick(rig, click);
+      syncClick(pane, click);
       return;
     }
     const zoom = zoomFromConsole(e.message); // a pinch or Ctrl + wheel inside the device
     if (zoom) {
-      const at = viewPoint(rig, zoom.x, zoom.y);
+      const at = viewPoint(pane, zoom.x, zoom.y);
       zoomAt(zoom.deltaY, at.x, at.y);
     }
   });
   // The page this device shows: a link, a form, back/forward or a route change in a single-page app.
-  view.addEventListener('did-navigate', (e) => pageChanged(rig, e.url));
-  view.addEventListener('did-navigate-in-page', (e) => e.isMainFrame && pageChanged(rig, e.url));
-  view.addEventListener('did-start-loading', () => setScreenMessage(rig, ''));
-  view.addEventListener('did-stop-loading', () => rig.root.classList.remove('is-loading'));
+  view.addEventListener('did-navigate', (e) => pageChanged(pane, e.url));
+  view.addEventListener('did-navigate-in-page', (e) => e.isMainFrame && pageChanged(pane, e.url));
+  view.addEventListener('did-start-loading', () => setScreenMessage(pane, ''));
+  view.addEventListener('did-stop-loading', () => setLoading(pane, false));
   view.addEventListener('did-fail-load', (e) => {
     if (!e.isMainFrame || e.errorCode === -3) return; // -3: replaced by a newer load
-    let host = rig.url;
+    let host = pane.url;
     try {
-      host = new URL(e.validatedURL || rig.url).host;
+      host = new URL(e.validatedURL || pane.url).host;
     } catch {
       /* keep the address as typed */
     }
-    setScreenMessage(rig, `Couldn’t open ${host}. Check that the server is running and the address is right.`);
+    setScreenMessage(pane, `Couldn’t open ${host}. Check that the server is running and the address is right.`);
   });
   return view;
 }
 
 /** Desktop app: phone/tablet emulation at the device's current (possibly rotated) size. */
-async function applyEmulation(rig, device) {
-  if (!bridge || !rig.emulation || !rig.viewReady) return;
+async function applyEmulation(pane, device) {
+  const { rig } = pane;
+  if (!bridge || !rig.emulation || !pane.viewReady) return;
   const g = geometry(device, !!state.rotated[device.id]);
   // The page gets the screen minus the status bar; screen.width/height stay the full screen.
-  await bridge.emulate(rig.view.getWebContentsId(), {
+  await bridge.emulate(pane.view.getWebContentsId(), {
     ...rig.emulation,
     width: g.w,
     height: g.h - g.statusBar,
@@ -316,32 +359,31 @@ async function applyEmulation(rig, device) {
   });
 }
 
-function setRigUrl(rig, device, url, { force = false } = {}) {
+function setPaneUrl(pane, url, { force = false } = {}) {
   if (!url) {
-    rig.view?.remove();
-    rig.view = null;
-    rig.viewReady = false;
-    rig.url = '';
-    rig.root.classList.remove('is-loading');
-    setScreenMessage(rig, 'Type your dev server’s address above, like localhost:3000, and press Open.');
+    pane.view?.remove();
+    Object.assign(pane, { view: null, viewReady: false, url: '', page: '', syncHelper: false });
+    setLoading(pane, false);
+    setScreenMessage(pane, 'Type your dev server’s address above, like localhost:3000, and press Open.');
     return;
   }
 
-  if (!rig.view) {
-    setScreenMessage(rig, '');
-    rig.view = createView(rig, device);
-    rig.screen.append(rig.view);
-  } else if (rig.url === url && !force) {
+  if (!pane.view) {
+    setScreenMessage(pane, '');
+    pane.view = createView(pane, deviceById(pane.rig.id));
+    pane.view.classList.toggle('is-background', pane.tab !== state.activeTab);
+    pane.rig.screen.append(pane.view);
+  } else if (pane.url === url && !force) {
     return;
   }
-  rig.url = url;
-  rig.root.classList.add('is-loading');
+  pane.url = url;
+  setLoading(pane, true);
 
   if (!bridge) {
-    rig.view.src = url; // setting src again reloads, even with the same address
-  } else if (rig.viewReady) {
-    rig.view.loadURL(url).catch(() => {});
-  } // otherwise the view loads rig.url as soon as it is ready (see createView)
+    pane.view.src = url; // setting src again reloads, even with the same address
+  } else if (pane.viewReady) {
+    pane.view.loadURL(url).catch(() => {});
+  } // otherwise the view loads pane.url as soon as it is ready (see createView)
 }
 
 function renderParts(rig, g, deviceData) {
@@ -434,13 +476,54 @@ const MIN_ROW_SHRINK = 0.55;
 const CAPTION_MIN_WIDTH = 220; // .rig__caption min-width in styles.css
 let fitScaleMax = 1; // the largest device scale Fit gives before state.fitZoom (set by layout)
 
+/**
+ * Each device's scale on a desk with this much room, and whether the row is wider than the desk
+ * (then the desk scrolls sideways). `shown`: [{ device, g, rotated }].
+ */
+function fitScales(shown, availW, availH, gap) {
+  let scales = shown.map(({ device, g, rotated }) => {
+    if (state.zoom !== 'fit') return Number(state.zoom);
+    if (state.mode === 'focus') return Math.min(1, availH / g.outerH, availW / g.outerW); // one device: fill the stage
+    // All devices: size each by its taller orientation, so turning a phone keeps its scale instead of making it jump in size.
+    const tallest = rotated ? Math.max(g.outerH, geometry(device, false).outerH) : g.outerH;
+    return Math.min(1, availH / tallest);
+  });
+  const widthsAt = (factor) => scales.map((s, i) => shown[i].g.outerW * s * factor);
+  const rowWidth = (widths) => widths.reduce((sum, w) => sum + Math.max(w, CAPTION_MIN_WIDTH), 0) + gap * (shown.length - 1);
+
+  // All devices, Fit: shrink the whole row together so it fits the width.
+  // Captions keep a minimum width, so only the devices wider than that shrink; solve for them.
+  if (state.zoom === 'fit' && state.mode === 'grid' && shown.length) {
+    const target = availW - 1; // a pixel of slack for sub-pixel rounding
+    let factor = 1;
+    for (let i = 0; i < 4; i += 1) {
+      const widths = widthsAt(factor);
+      const row = rowWidth(widths);
+      if (row <= target) break;
+      const scalable = widths.filter((w) => w > CAPTION_MIN_WIDTH).reduce((sum, w) => sum + w, 0);
+      if (!scalable) break;
+      factor = Math.max(MIN_ROW_SHRINK, factor * ((target - (row - scalable)) / scalable));
+      if (factor === MIN_ROW_SHRINK) break;
+    }
+    scales = scales.map((s) => s * factor);
+  }
+
+  // Zoomed in or out from Fit (pinch or Ctrl + wheel): every device grows or shrinks by the same factor.
+  const fitted = scales.length ? Math.max(...scales) : 1;
+  if (state.zoom === 'fit') scales = scales.map((s) => s * state.fitZoom);
+  return { scales, fitted, overflows: state.mode === 'grid' && rowWidth(widthsAt(1)) > availW };
+}
+
 function layout() {
   const cs = getComputedStyle(els.stage);
   const availW = els.stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const availH = els.stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - CAPTION_SPACE;
+  // The desk's height leaving out its sideways scrollbar, whether that shows right now or not. Measured
+  // with it, a row right at its smallest would flicker: too wide → scrollbar → less height → smaller
+  // devices → fits → no scrollbar → more height → too wide again…
+  const deskH = els.stage.offsetHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - CAPTION_SPACE;
   const gap = parseFloat(getComputedStyle(els.rack).columnGap) || 0;
 
-  // First pass: geometry and each device's own scale.
+  // Geometry of each device in view (its frame is redrawn when its size changes).
   const shown = [];
   for (const [id, rig] of rigs) {
     if (rig.root.hidden) continue;
@@ -453,46 +536,16 @@ function layout() {
       const resized = rig.geomKey !== '';
       renderParts(rig, g, device);
       rig.geomKey = key;
-      if (resized) applyEmulation(rig, device); // rotated: tell the emulated phone its new size
+      if (resized) for (const pane of rig.panes.values()) applyEmulation(pane, device); // rotated: tell the emulated phone (in every tab) its new size
     }
-
-    let s;
-    if (state.zoom === 'fit' && state.mode === 'focus') {
-      // One device: fill the stage.
-      s = Math.min(1, availH / g.outerH, availW / g.outerW);
-    } else if (state.zoom === 'fit') {
-      // All devices: size each by its taller orientation, so turning a phone
-      // keeps its scale instead of making it jump in size.
-      const tallest = rotated ? Math.max(g.outerH, geometry(device, false).outerH) : g.outerH;
-      s = Math.min(1, availH / tallest);
-    } else {
-      s = Number(state.zoom);
-    }
-    shown.push({ rig, device, g, rotated, s });
+    shown.push({ rig, device, g, rotated });
   }
 
-  // Second pass (all devices, Fit): shrink the whole row together so it fits the width.
-  // Captions keep a minimum width, so only the devices wider than that shrink; solve for them.
-  if (state.zoom === 'fit' && state.mode === 'grid' && shown.length) {
-    const target = availW - 1; // a pixel of slack for sub-pixel rounding
-    let factor = 1;
-    for (let i = 0; i < 4; i += 1) {
-      const widths = shown.map((d) => d.g.outerW * d.s * factor);
-      const rowWidth = widths.reduce((sum, w) => sum + Math.max(w, CAPTION_MIN_WIDTH), 0) + gap * (shown.length - 1);
-      if (rowWidth <= target) break;
-      const scalable = widths.filter((w) => w > CAPTION_MIN_WIDTH).reduce((sum, w) => sum + w, 0);
-      if (!scalable) break;
-      factor = Math.max(MIN_ROW_SHRINK, factor * ((target - (rowWidth - scalable)) / scalable));
-      if (factor === MIN_ROW_SHRINK) break;
-    }
-    for (const d of shown) d.s *= factor;
-  }
-
-  // Zoomed in or out from Fit (pinch or Ctrl + wheel): every device grows or shrinks by the same factor.
-  if (state.zoom === 'fit' && shown.length) {
-    fitScaleMax = Math.max(...shown.map((d) => d.s));
-    for (const d of shown) d.s *= state.fitZoom;
-  }
+  // A row too wide even at its smallest makes the desk scroll sideways; then its scrollbar takes some height.
+  let fit = fitScales(shown, availW, deskH, gap);
+  if (fit.overflows && SCROLLBAR_WIDTH) fit = fitScales(shown, availW, deskH - SCROLLBAR_WIDTH, gap);
+  if (state.zoom === 'fit' && shown.length) fitScaleMax = fit.fitted;
+  shown.forEach((d, i) => (d.s = fit.scales[i]));
 
   for (const { rig, device, g, rotated, s: scale } of shown) {
     const s = Math.max(0.05, scale);
@@ -574,9 +627,9 @@ function applyZoom() {
 }
 
 /** A point in a device view (its own CSS pixels) as a point in this window. */
-function viewPoint(rig, x, y) {
-  const r = rig.view.getBoundingClientRect();
-  const k = rig.view.offsetWidth ? r.width / rig.view.offsetWidth : 1;
+function viewPoint(pane, x, y) {
+  const r = pane.view.getBoundingClientRect();
+  const k = pane.view.offsetWidth ? r.width / pane.view.offsetWidth : 1;
   return { x: r.left + x * k, y: r.top + y * k };
 }
 
@@ -600,51 +653,56 @@ function renderZoom() {
 // The device the user is using: its page has the focus (webviews fire no focus events,
 // but they do become the active element). Pages that change in other devices were
 // changed by Bezel, or by the page itself, and are not passed on.
-const isActive = (rig) => !!rig.view && document.activeElement === rig.view;
+const isActive = (pane) => !!pane.view && document.activeElement === pane.view;
+
+/** The same tab's pages in the other visible devices. Pages in a tab behind never pass anything on. */
+function otherPanes(source) {
+  if (source.tab !== state.activeTab) return [];
+  return [...rigs.values()].map(activePane).filter((pane) => pane && pane !== source && !pane.rig.root.hidden && pane.view && pane.url);
+}
 
 /** A device was scrolled by the user ({ ratio, anchors }, see sync.js): the other visible devices show the same content. */
-function syncScroll(sourceRig, scroll) {
+function syncScroll(source, scroll) {
   if (!state.syncScroll || state.mode !== 'grid') return;
-  for (const rig of rigs.values()) {
-    if (rig === sourceRig || rig.root.hidden || !rig.view || !rig.url) continue;
+  for (const pane of otherPanes(source)) {
     if (bridge) {
-      if (rig.viewReady) rig.view.executeJavaScript(`window.__bezelScrollTo && window.__bezelScrollTo(${JSON.stringify(scroll)})`).catch(() => {});
+      if (pane.viewReady) pane.view.executeJavaScript(`window.__bezelScrollTo && window.__bezelScrollTo(${JSON.stringify(scroll)})`).catch(() => {});
     } else {
-      rig.view.contentWindow?.postMessage({ bezel: 'scrollTo', ...scroll }, '*');
+      pane.view.contentWindow?.postMessage({ bezel: 'scrollTo', ...scroll }, '*');
     }
   }
 }
 
 /** A device was clicked by the user: click the same element in the other visible devices. */
-function syncClick(sourceRig, click) {
+function syncClick(source, click) {
   if (!state.syncScroll || state.mode !== 'grid') return;
-  for (const rig of rigs.values()) {
-    if (rig === sourceRig || rig.root.hidden || !rig.view || !rig.url) continue;
+  for (const pane of otherPanes(source)) {
     if (bridge) {
-      if (rig.viewReady) rig.view.executeJavaScript(`window.__bezelClick && window.__bezelClick(${JSON.stringify(click)})`).catch(() => {});
-    } else if (rig.syncHelper) {
-      rig.view.contentWindow?.postMessage({ bezel: 'clickAt', ...click }, '*');
+      if (pane.viewReady) pane.view.executeJavaScript(`window.__bezelClick && window.__bezelClick(${JSON.stringify(click)})`).catch(() => {});
+    } else if (pane.syncHelper) {
+      pane.view.contentWindow?.postMessage({ bezel: 'clickAt', ...click }, '*');
     }
   }
 }
 
 /** A device now shows this page. If the user took it there, the other devices follow. */
-function pageChanged(rig, url) {
-  if (!url || !/^https?:/i.test(url) || url === rig.page) return;
-  const onlyHash = !!rig.page && rig.page.split('#')[0] === url.split('#')[0];
-  rig.page = url;
-  rig.url = url; // what this device shows, so asking it for the same page again does nothing
+function pageChanged(pane, url) {
+  if (!url || !/^https?:/i.test(url) || url === pane.page) return;
+  const onlyHash = !!pane.page && pane.page.split('#')[0] === url.split('#')[0];
+  pane.page = url;
+  pane.url = url; // what this device shows, so asking it for the same page again does nothing
   // Only the #fragment changed: an anchor link (its click is replayed in the other devices)
   // or a page that updates its own hash while it scrolls. Neither moves the other devices.
   if (onlyHash) return;
-  if (state.syncScroll && isActive(rig)) followPage(rig, url);
+  if (state.syncScroll && pane.tab === state.activeTab && isActive(pane)) followPage(pane, url);
 }
 
 /** Every device opens the page the user went to in one of them, and the address bar shows it. */
-function followPage(sourceRig, url) {
+function followPage(source, url) {
   setAddress(url);
-  for (const [id, rig] of rigs) {
-    if (rig !== sourceRig && rig.view) setRigUrl(rig, deviceById(id), url);
+  for (const rig of rigs.values()) {
+    const pane = activePane(rig);
+    if (pane && pane !== source && pane.view) setPaneUrl(pane, url);
   }
   renderToolbar();
 }
@@ -652,29 +710,29 @@ function followPage(sourceRig, url) {
 // Web version: pages that include public/sync.js report their scrolling, clicks and page here.
 if (!bridge) {
   window.addEventListener('message', (e) => {
-    const rig = [...rigs.values()].find((r) => r.view && r.view.contentWindow === e.source);
-    if (!rig) return;
+    const pane = allPanes().find((p) => p.view && p.view.contentWindow === e.source);
+    if (!pane) return;
     const page = pageFromMessage(e.data);
-    if (page) pageChanged(rig, page);
+    if (page) pageChanged(pane, page);
     if (e.data?.bezel === 'hello') {
-      rig.syncHelper = true;
+      pane.syncHelper = true;
       e.source.postMessage({ bezel: 'ready' }, '*'); // the helper may now pass on pinches, Ctrl + wheel and clicks
       renderToolbar();
       return;
     }
     const click = clickFromMessage(e.data);
     if (click) {
-      syncClick(rig, click);
+      syncClick(pane, click);
       return;
     }
     const scroll = scrollFromMessage(e.data);
     if (scroll) {
-      syncScroll(rig, scroll);
+      syncScroll(pane, scroll);
       return;
     }
     const zoom = zoomFromMessage(e.data);
     if (zoom) {
-      const at = viewPoint(rig, zoom.x, zoom.y);
+      const at = viewPoint(pane, zoom.x, zoom.y);
       zoomAt(zoom.deltaY, at.x, at.y);
     }
   });
@@ -689,11 +747,12 @@ function toggleSync() {
 function renderToolbar() {
   els.input.value = state.url ? displayUrl(state.url) : '';
   addressList.renderStar();
+  renderTabs();
   els.modeButtons.forEach((btn) => btn.setAttribute('aria-pressed', String(btn.dataset.mode === state.mode)));
   renderZoom();
   els.reload.disabled = !state.url;
   els.sync.setAttribute('aria-pressed', String(state.syncScroll));
-  const helperSeen = bridge || [...rigs.values()].some((r) => r.syncHelper);
+  const helperSeen = bridge || allPanes().some((p) => p.syncHelper);
   els.sync.title = state.syncScroll
     ? helperSeen
       ? 'Scrolling and clicks are synced across devices (Alt+S to turn off)'
@@ -733,13 +792,14 @@ function openUrl(raw) {
   els.input.setCustomValidity('');
   if (url) state.recent = [url, ...state.recent.filter((u) => u !== url)].slice(0, MAX_RECENT);
   setAddress(url);
-  for (const [id, rig] of rigs) setRigUrl(rig, deviceById(id), url);
+  for (const rig of rigs.values()) setPaneUrl(activePane(rig), url);
   renderToolbar();
 }
 
-/** The address the devices show: kept in the state (saved for next time) and in this page's ?url=. */
+/** The address the devices show in the active tab: kept in the state (saved for next time) and in this page's ?url=. */
 function setAddress(url) {
   state.url = url;
+  activeTab().url = url;
   persist();
   const params = new URLSearchParams(location.search);
   if (url) params.set('url', url);
@@ -753,7 +813,121 @@ function reloadAll() {
   els.reload.classList.remove('is-turning');
   void els.reload.offsetWidth; // restart the turn
   els.reload.classList.add('is-turning');
-  for (const [id, rig] of rigs) setRigUrl(rig, deviceById(id), state.url, { force: true });
+  for (const rig of rigs.values()) setPaneUrl(activePane(rig), state.url, { force: true });
+}
+
+// ── Tabs ─────────────────────────────────────────────────────
+// Another site (or another part of it, like its admin) on the same devices. The devices stay
+// where they are; each keeps every tab's page loaded, and the tab in front is the one you see.
+
+let tabsDrawn = '';
+
+function renderTabs() {
+  const many = state.tabs.length > 1;
+  const drawn = JSON.stringify([state.activeTab, state.tabs]);
+  if (drawn !== tabsDrawn) {
+    tabsDrawn = drawn;
+    const hadFocus = els.tabList.contains(document.activeElement);
+    els.tabList.replaceChildren(
+      ...state.tabs.map((tab) => {
+        const active = tab.id === state.activeTab;
+        const label = tabLabel(tab.url);
+        const btn = h(
+          'button',
+          {
+            class: 'tab__btn',
+            type: 'button',
+            role: 'tab',
+            id: `tab-${tab.id}`,
+            'aria-selected': String(active),
+            'aria-controls': 'stage',
+            tabindex: active ? '0' : '-1',
+            title: tab.url ? displayUrl(tab.url) : 'New tab: type an address or pick a favorite',
+          },
+          h('span', { class: 'tab__label', text: label }),
+        );
+        btn.addEventListener('click', () => switchTab(tab.id));
+        btn.addEventListener('keydown', (e) => tabKey(e, tab.id));
+        const el = h('div', { class: `tab${active ? ' is-active' : ''}`, role: 'presentation', 'data-tab': tab.id }, btn);
+        if (many) {
+          const close = h('button', { class: 'tab__close', type: 'button', tabindex: '-1', 'aria-label': `Close ${label}`, title: 'Close tab' });
+          close.innerHTML = ICONS.close;
+          close.addEventListener('click', () => closeTab(tab.id));
+          el.append(close);
+        }
+        el.addEventListener('auxclick', (e) => e.button === 1 && closeTab(tab.id)); // middle click, as in a browser
+        return el;
+      }),
+    );
+    els.tabList.querySelector('.tab.is-active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (hadFocus) els.tabList.querySelector('[aria-selected="true"]')?.focus();
+  }
+  const full = state.tabs.length >= MAX_TABS;
+  els.newTab.disabled = full;
+  els.newTab.title = full ? `Up to ${MAX_TABS} tabs` : 'New tab: another site on the same devices (Alt+T switches tabs)';
+}
+
+/** Arrow keys move between tabs, Home and End go to the first and last, Delete closes one. */
+function tabKey(e, id) {
+  const i = state.tabs.findIndex((t) => t.id === id);
+  const to = { ArrowLeft: i - 1, ArrowRight: i + 1, Home: 0, End: state.tabs.length - 1 }[e.key];
+  if (to !== undefined) {
+    e.preventDefault();
+    const tab = state.tabs[(to + state.tabs.length) % state.tabs.length];
+    switchTab(tab.id);
+    document.getElementById(`tab-${tab.id}`)?.focus();
+  } else if (e.key === 'Delete' && state.tabs.length > 1) {
+    e.preventDefault();
+    closeTab(id);
+    els.tabList.querySelector('[aria-selected="true"]')?.focus();
+  }
+}
+
+/** Brings a tab to the front: every device shows its page, opened the first time and kept from then on. */
+function switchTab(id) {
+  const tab = state.tabs.find((t) => t.id === id);
+  if (!tab || id === state.activeTab) return;
+  const typingIn = [...rigs.values()].find((rig) => isActive(activePane(rig)));
+  addressList.close();
+  state.activeTab = id;
+  setAddress(tab.url);
+  for (const rig of rigs.values()) showActivePane(rig);
+  renderToolbar();
+  // A device page in the tab going behind had the keyboard (blurring it isn't enough: the hidden page
+  // keeps it). It goes to the same device in this tab, or to the tab itself, so nothing lands out of sight.
+  if (typingIn) {
+    document.activeElement?.blur();
+    const next = activePane(typingIn).view ?? document.getElementById(`tab-${id}`);
+    requestAnimationFrame(() => next?.isConnected && next.focus()); // once it shows: a hidden view can't take the keyboard
+  }
+}
+
+function newTab() {
+  if (state.tabs.length >= MAX_TABS) return;
+  const tab = { id: newTabId(), url: '' };
+  state.tabs.push(tab);
+  switchTab(tab.id);
+  els.input.focus(); // the favorites and recent sites open under the address bar
+}
+
+function closeTab(id) {
+  const index = state.tabs.findIndex((t) => t.id === id);
+  if (index < 0 || state.tabs.length < 2) return;
+  if (id === state.activeTab) switchTab((state.tabs[index + 1] ?? state.tabs[index - 1]).id);
+  state.tabs.splice(index, 1);
+  for (const rig of rigs.values()) {
+    rig.panes.get(id)?.view?.remove();
+    rig.panes.delete(id);
+  }
+  persist();
+  renderTabs();
+}
+
+/** Alt+T: the next tab, so with two of them one key goes back and forth. With just one, opens a second. */
+function nextTab() {
+  if (state.tabs.length < 2) return newTab();
+  const i = state.tabs.findIndex((t) => t.id === state.activeTab);
+  switchTab(state.tabs[(i + 1) % state.tabs.length].id);
 }
 
 function setMode(mode) {
@@ -832,6 +1006,7 @@ els.form.addEventListener('submit', (e) => {
 });
 els.input.addEventListener('input', () => els.input.setCustomValidity(''));
 els.reload.addEventListener('click', reloadAll);
+els.newTab.addEventListener('click', newTab);
 els.rotate.addEventListener('click', rotate);
 els.sync.addEventListener('click', toggleSync);
 els.shot.addEventListener('click', takeScreenshot);
@@ -909,6 +1084,10 @@ function runShortcut(code, shift) {
   }
   if (code === 'KeyC') {
     takeScreenshot();
+    return true;
+  }
+  if (code === 'KeyT' && !shift) {
+    nextTab();
     return true;
   }
   return false;
@@ -1135,8 +1314,8 @@ const swapMenu = createSwapMenu({ state, h, allDevices, deviceById, replaceDevic
 // The page title of an open site (desktop app only; the web version can't read another site's title).
 const pageTitle = (url) => {
   if (!bridge) return '';
-  const rig = [...rigs.values()].find((r) => r.viewReady && r.url === url);
-  const title = rig?.view?.getTitle?.()?.trim() ?? '';
+  const pane = [...rigs.values()].map(activePane).find((p) => p?.viewReady && p.url === url);
+  const title = pane?.view?.getTitle?.()?.trim() ?? '';
   return title && title !== url && !url.includes(title) ? title : '';
 };
 const addressList = createAddressList({ state, h, persist, displayUrl, openUrl, pageTitle });

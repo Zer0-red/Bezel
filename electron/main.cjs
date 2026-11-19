@@ -75,7 +75,7 @@ function createWindow() {
 
 // ── Device views (<webview>) ─────────────────────────────────
 
-const SHORTCUT_CODES = new Set(['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'KeyR', 'KeyS', 'KeyC']);
+const SHORTCUT_CODES = new Set(['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'KeyR', 'KeyS', 'KeyC', 'KeyT']);
 
 app.on('web-contents-created', (_event, contents) => {
   if (contents.getType() === 'window') {
@@ -101,7 +101,7 @@ app.on('web-contents-created', (_event, contents) => {
       return { action: 'deny' };
     });
 
-    // Keyboard shortcuts keep working after clicking into a device (Alt+0–5, Alt+R, Alt+Shift+R, Alt+S).
+    // Keyboard shortcuts keep working after clicking into a device (Alt+0–5, Alt+R, Alt+Shift+R, Alt+S, Alt+C, Alt+T).
     contents.on('before-input-event', (event, input) => {
       if (input.type !== 'keyDown' || !input.alt || input.control || input.meta) return;
       if (!SHORTCUT_CODES.has(input.code)) return;

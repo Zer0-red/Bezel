@@ -26,32 +26,42 @@
       <!-- In the desktop app, clicking the version checks for updates. -->
       <button class="brand__version" id="app-version" type="button" disabled></button>
 
-      <form class="address" id="address-form" autocomplete="off">
-        <label class="visually-hidden" for="address-input">Website address</label>
-        <div class="address__field">
-          <button class="address__reload" id="reload-btn" type="button" aria-label="Reload all devices" title="Reload all devices (Alt+Shift+R)">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></svg>
-          </button>
-          <input
-            id="address-input"
-            class="address__input"
-            type="text"
-            inputmode="url"
-            spellcheck="false"
-            placeholder="localhost:3000"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded="false"
-            aria-controls="address-list"
-          />
-          <button class="address__star" id="favorite-btn" type="button" aria-pressed="false" aria-label="Add to favorites" title="Add to favorites">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" /></svg>
+      <div class="site">
+        <!-- Tabs: other sites (or your admin) on the same devices; each keeps its pages loaded (main.js) -->
+        <div class="tabs">
+          <div class="tabs__list" id="tab-list" role="tablist" aria-label="Open sites"></div>
+          <button class="tabs__new" id="new-tab-btn" type="button" aria-label="New tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13" /></svg>
           </button>
         </div>
-        <button class="address__go" type="submit">Open</button>
-        <!-- Favorites, then recent sites (src/address-list.js) -->
-        <div class="address__list" id="address-list" role="listbox" aria-label="Favorite and recent sites" hidden></div>
-      </form>
+
+        <form class="address" id="address-form" autocomplete="off">
+          <label class="visually-hidden" for="address-input">Website address</label>
+          <div class="address__field">
+            <button class="address__reload" id="reload-btn" type="button" aria-label="Reload all devices" title="Reload all devices (Alt+Shift+R)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></svg>
+            </button>
+            <input
+              id="address-input"
+              class="address__input"
+              type="text"
+              inputmode="url"
+              spellcheck="false"
+              placeholder="localhost:3000"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-controls="address-list"
+            />
+            <button class="address__star" id="favorite-btn" type="button" aria-pressed="false" aria-label="Add to favorites" title="Add to favorites">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" /></svg>
+            </button>
+          </div>
+          <button class="address__go" type="submit">Open</button>
+          <!-- Favorites, then recent sites (src/address-list.js) -->
+          <div class="address__list" id="address-list" role="listbox" aria-label="Favorite and recent sites" hidden></div>
+        </form>
+      </div>
 
       <div class="controls">
         <button class="icon-btn" id="shot-btn" type="button" aria-label="Copy a screenshot of the devices" title="Copy a screenshot of the devices (Alt+C)">

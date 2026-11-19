@@ -23,6 +23,7 @@ Bezel puts your site on a phone, a tablet and a laptop side by side, drawn like 
 - **Real devices.** The latest iPhones, Pixels and Galaxys, iPads, MacBook Air and Pro, ThinkPad, Surface and other Windows laptops, and monitors, each at its real screen size. You can also add the most-used screen sizes or your own.
 - **One-click setups.** *Phone, tablet, laptop*, *Three phones*, *Apple* and more. Save your own.
 - **Swap a device fast.** Click the name under a device and pick another from the menu.
+- **Tabs for your site and its admin.** Open another address in a new tab and switch with one click or `Alt+T`. The devices stay where they are, and each tab keeps its pages loaded, so switching is instant and you come back to the same spot, still logged in.
 - **Scroll or click once, see it everywhere.** Scroll one device and the others follow to the same spot. Open a menu or a tab and it opens in all of them, even where it's scrolled out of view; follow a link and they all go to that page.
 - **Screenshots.** The camera button copies all the devices to your clipboard, ready to paste.
 - **Zoom like on a phone.** Pinch on the trackpad, or hold `Ctrl` and turn the mouse wheel.
@@ -57,6 +58,8 @@ After that you never need to download it again. When a new version is ready, the
 
 Click the star in the address bar to keep a site in your favorites. Next time, click the address bar and pick it.
 
+To check another page at the same time, like your admin panel, click **+** next to the address bar and open its address there. Switch between the two with their tabs or `Alt+T`.
+
 | Shortcut | What it does |
 |---|---|
 | `/` | Jump to the address bar |
@@ -66,6 +69,7 @@ Click the star in the address bar to keep a site in your favorites. Next time, c
 | `Alt+Shift+R` | Reload all devices |
 | `Alt+S` | Turn synced scrolling and clicks on or off |
 | `Alt+C` | Copy a screenshot |
+| `Alt+T` | Switch to the next tab (opens a second one if there's only one) |
 | Pinch, or `Ctrl` + wheel | Zoom the devices in and out (pick **Fit** in the zoom menu to reset) |
 
 ### Syncing in the browser

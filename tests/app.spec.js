@@ -15,15 +15,20 @@ let app;
 let win;
 let settings;
 
+// The devices' pages in the tab in front; other tabs' pages stay loaded behind them.
+const SHOWN = 'webview:not(.is-background)';
+const BEHIND = 'webview.is-background';
+
 /** Runs page code in every device, in desk order. */
-const inViews = (code) =>
-  win.evaluate((code) => Promise.all([...document.querySelectorAll('webview')].map((v) => v.executeJavaScript(code))), code);
-const inView = (index, code) => win.evaluate(([i, code]) => document.querySelectorAll('webview')[i].executeJavaScript(code), [index, code]);
+const inViews = (code, selector = SHOWN) =>
+  win.evaluate(([code, selector]) => Promise.all([...document.querySelectorAll(selector)].map((v) => v.executeJavaScript(code))), [code, selector]);
+const inView = (index, code) => win.evaluate(([i, code, selector]) => document.querySelectorAll(selector)[i].executeJavaScript(code), [index, code, SHOWN]);
+const deviceBoxes = () => win.$$eval('.rig__frame', (els) => els.map((el) => JSON.stringify(el.getBoundingClientRect())));
 
 // Mouse input goes straight to the device's page, as real, trusted events at the page's own
 // coordinates. (Sending it to Bezel's window and letting Chromium route it into the scaled,
 // emulated device views is unreliable on a bare virtual display: clicks drift or get lost.)
-const deviceId = (index) => win.evaluate((i) => document.querySelectorAll('webview')[i].getWebContentsId(), index);
+const deviceId = (index) => win.evaluate(([i, selector]) => document.querySelectorAll(selector)[i].getWebContentsId(), [index, SHOWN]);
 const sendInput = async (index, events) =>
   app.evaluate(({ webContents }, [id, events]) => events.forEach((e) => webContents.fromId(id).sendInputEvent(e)), [await deviceId(index), events]);
 
@@ -194,4 +199,95 @@ test('with sync off, nothing follows', async () => {
   await expect.poll(() => inView(LAPTOP, 'location.pathname')).toBe('/about.html');
   await win.waitForTimeout(1000);
   expect(await inViews('location.pathname')).toEqual(['/', '/', '/about.html']);
+});
+
+test('the devices hold still at every window height', async () => {
+  // A row of devices right at its smallest used to flicker: too wide, so the desk got a sideways
+  // scrollbar, which took height, so the devices shrank and fitted, so the scrollbar went, and again.
+  const setSize = (size) => app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), size);
+  const original = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getContentSize());
+  const flickering = [];
+  try {
+    for (let height = 850; height <= 950; height += 5) {
+      await setSize([1280, height]);
+      await win.waitForTimeout(150);
+      // The desk's size over ten frames in a row.
+      const sizes = await win.evaluate(
+        () =>
+          new Promise((resolve) => {
+            const seen = new Set();
+            const tick = () => {
+              seen.add(document.querySelector('#stage').clientHeight);
+              if (seen.size > 1 || (tick.n = (tick.n ?? 0) + 1) >= 10) resolve(seen.size);
+              else requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
+      if (sizes > 1) flickering.push(height);
+    }
+  } finally {
+    await setSize(original);
+  }
+  expect(flickering).toEqual([]);
+});
+
+test('a second tab shows another page on the same devices; switching back finds the first as it was', async () => {
+  const boxes = await deviceBoxes();
+  await inView(LAPTOP, userScrollTo('#pricing h2'));
+  await expect.poll(async () => (await inViews('scrollY')).every((y) => y > 0)).toBe(true);
+  await win.waitForTimeout(300);
+  await inViews("window.left = 'here'");
+  const scrolled = await inViews('scrollY');
+
+  // A new tab starts empty, with the address bar ready for the other address (the admin, say).
+  await win.click('#new-tab-btn');
+  await expect(win.locator('#address-input')).toBeFocused();
+  await expect(win.locator('.tab')).toHaveCount(2);
+  await win.fill('#address-input', '127.0.0.1:4174/index.html?tab=2');
+  await win.press('#address-input', 'Enter');
+  await expect.poll(() => inViews('location.search + document.readyState')).toEqual(Array(3).fill('?tab=2complete'));
+  await expect(win.locator('webview')).toHaveCount(6); // the first tab's pages wait behind, hidden
+  expect(await win.$$eval(BEHIND, (els) => els.map((el) => getComputedStyle(el).visibility))).toEqual(Array(3).fill('hidden'));
+  expect(await deviceBoxes()).toEqual(boxes); // the devices didn't move
+  // The new tab's pages are emulated like the first's.
+  expect(await inView(PHONE, '[innerWidth, devicePixelRatio, navigator.maxTouchPoints]')).toEqual([402, 3, 5]);
+
+  // Synced scrolling stays within the tab in front: the pages behind don't move.
+  await expect.poll(() => inViews('typeof window.__bezelScrollTo')).toEqual(Array(3).fill('function'));
+  await wheelIn(LAPTOP, 900);
+  await expect.poll(async () => (await inViews('scrollY')).every((y) => y > 0)).toBe(true);
+  expect(await inViews('scrollY', BEHIND)).toEqual(scrolled);
+
+  // Alt+T, pressed while working in a device, goes back: the same pages, not reloaded, still scrolled
+  // where they were. The keyboard moves to the same device in that tab, never to a hidden page.
+  await inViews("window.keys = ''; addEventListener('keydown', (e) => (window.keys += e.key)); 0", 'webview');
+  await sendInput(LAPTOP, [
+    { type: 'mouseMove', x: 200, y: 300 },
+    { type: 'mouseDown', x: 200, y: 300, button: 'left', clickCount: 1 },
+    { type: 'mouseUp', x: 200, y: 300, button: 'left', clickCount: 1 },
+  ]);
+  await expect.poll(() => win.evaluate(() => document.activeElement?.tagName)).toBe('WEBVIEW');
+  await sendInput(LAPTOP, [{ type: 'keyDown', keyCode: 'T', modifiers: ['alt'] }]);
+  await expect(win.locator('#address-input')).toHaveValue('127.0.0.1:4174');
+  await expect(win.locator('.tab').first()).toHaveClass(/is-active/);
+  expect(await inViews('[location.search, window.left]')).toEqual(Array(3).fill(['', 'here']));
+  expect(await inViews('scrollY')).toEqual(scrolled);
+  expect(await deviceBoxes()).toEqual(boxes);
+  await win.waitForTimeout(100);
+  await win.keyboard.press('j');
+  const typed = async () => ({ shown: await inViews('window.keys'), behind: await inViews('window.keys', BEHIND) });
+  await expect.poll(typed).toEqual({ shown: ['', '', 'j'], behind: ['', '', ''] });
+
+  // Turning the phone turns it in every tab.
+  await win.click('#rotate-btn');
+  await expect.poll(() => inViews('innerWidth', BEHIND).then((w) => w[PHONE])).toBe(874);
+  await win.click('#rotate-btn');
+  await expect.poll(() => inViews('innerWidth', BEHIND).then((w) => w[PHONE])).toBe(402);
+
+  // Closing a tab closes its pages.
+  await win.click('.tab:nth-child(2) .tab__close');
+  await expect(win.locator('.tab')).toHaveCount(1);
+  await expect(win.locator('webview')).toHaveCount(3);
+  expect(await inViews('window.left')).toEqual(Array(3).fill('here'));
 });
