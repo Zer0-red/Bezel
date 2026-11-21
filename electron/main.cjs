@@ -8,6 +8,7 @@
 const { app, BrowserWindow, ClipboardItem, clipboard, ipcMain, screen, session, shell, webContents } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
+const { keepCookies } = require('./cookies.cjs');
 
 const DEV_URL = process.env.BEZEL_DEV_URL; // e.g. http://localhost:5173 with `npm run app:dev`
 
@@ -25,6 +26,15 @@ const isWebUrl = (value) => {
 };
 
 let mainWindow = null;
+/** The device views' logins: kept across restarts and updates (cookies.cjs). */
+let deviceCookies = null;
+let loginsSaved = false; // just saved for an update: quitting needn't wait again
+
+/** Writes the logins to disk now (at most 3 s). */
+async function saveLogins() {
+  await Promise.race([deviceCookies?.flush(), new Promise((resolve) => setTimeout(resolve, 3000))]);
+  loginsSaved = true;
+}
 
 function createWindow() {
   // 1440 × 900, but never bigger than the screen: on a 1366 × 768 laptop a bigger window would hang off it.
@@ -250,6 +260,7 @@ function setUpAutoUpdates() {
     if (installing) {
       // E.g. the password prompt for a .deb was cancelled. The update stays downloaded, ready to try again.
       installing = false;
+      loginsSaved = false; // Bezel stays open, so quitting later saves them again
       send({ state: 'install-error', version: downloaded });
       return;
     }
@@ -264,7 +275,8 @@ function setUpAutoUpdates() {
   ipcMain.on('bezel:install-update', () => {
     if (!downloaded) return;
     installing = true;
-    autoUpdater.quitAndInstall(); // then Bezel restarts on the new version
+    // Logins are on disk before the installer starts: on Windows it may force Bezel closed.
+    saveLogins().finally(() => autoUpdater.quitAndInstall()); // then Bezel restarts on the new version
   });
   ipcMain.handle('bezel:check-updates', async () => {
     if (downloaded) return send({ state: 'ready', version: downloaded });
@@ -288,9 +300,13 @@ if (!app.requestSingleInstanceLock()) {
     mainWindow.focus();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    const devices = session.fromPartition('persist:bezel');
     // Device views (partition "persist:bezel") can never open files from this computer.
-    session.fromPartition('persist:bezel').protocol.handle('file', () => new Response('Blocked', { status: 403 }));
+    devices.protocol.handle('file', () => new Response('Blocked', { status: 403 }));
+    // Session cookies from the last time come back before any device loads.
+    deviceCookies = keepCookies(devices, path.join(app.getPath('userData'), 'session-cookies.json'));
+    await deviceCookies.restore().catch((error) => console.error('Restoring cookies failed:', error));
     createWindow();
     setUpAutoUpdates();
     app.on('activate', () => {
@@ -300,5 +316,12 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
+  });
+
+  // Quitting waits until the logins are saved.
+  app.on('before-quit', (event) => {
+    if (loginsSaved || !deviceCookies) return;
+    event.preventDefault();
+    saveLogins().finally(() => app.quit());
   });
 }

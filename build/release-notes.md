@@ -1,1 +1,1 @@
-- **New logo:** a glossy glass B in violet and blue, on the app icon, the Windows taskbar and Start menu, the Linux app menu, the browser tab and the top bar.
+- **You stay signed in:** sites you log into in Bezel no longer ask for your password again after Bezel updates or you close it. Logins that last until the browser closes (how most dev servers sign you in) are kept, and every login is saved to disk right away, so an update can't cut it off.

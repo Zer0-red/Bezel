@@ -92,6 +92,7 @@ import Script from 'next/script';
 
 - **A site stays blank in the browser version?** It probably forbids being shown in a frame (`X-Frame-Options` or `frame-ancestors`). Use the app, or allow Bezel's address in your site's headers.
 - **Chrome asks to "access devices on your local network"?** Choose **Allow**. Bezel needs it to show `localhost` from its web address.
+- **You stay signed in.** In the app, sites you log into stay logged in after you close Bezel or it updates, like Chrome with *Continue where you left off*.
 - **Clicks happen in every device.** Buttons that send a form are the exception: they only work in the device you clicked, so nothing is sent twice. For something like *Delete* in an admin panel, turn sync off first (`Alt+S`).
 - **On Ubuntu 24.04 or later, use the .deb.** Ubuntu blocks Chromium's sandbox (which keeps the sites you open walled off) for apps without a security profile, so the AppImage runs without it there. The .deb installs that profile.
 - **Sizes** are in CSS pixels, the numbers your media queries see. Phones show a status bar and MacBooks the menu bar beside the camera, and your page starts below it, as on the real thing.

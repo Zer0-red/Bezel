@@ -90,6 +90,7 @@ src/sync.js                Synced scrolling and clicks in the app
 public/sync.js             Sync helper (scrolling, clicks, pages) for sites in the web version
 src/styles.css             All styles, with the dark and light colours at the top
 electron/main.cjs          The app: window, device views, emulation, updates
+electron/cookies.cjs       Keeps sites' logins when the app closes, restarts or updates
 electron/preload.cjs       The small bridge between the interface and the app
 build/icon.svg             The app icon (build/icon.png and build/icons/ are rendered from it)
 tests/unit/logo.test.js    Checks the logo files are one drawing and the PNGs match it

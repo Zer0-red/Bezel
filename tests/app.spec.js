@@ -3,7 +3,7 @@
 // To test a packaged build instead: BEZEL_APP=release/linux-unpacked/bezel npx playwright test --project=app
 import { test, expect, _electron as electron } from '@playwright/test';
 import electronPath from 'electron';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,8 +62,8 @@ async function openSite() {
 
 // One app for all tests (each starts from a fresh page); after a failure Playwright starts a new one and carries on.
 
-test.beforeAll(async () => {
-  settings = mkdtempSync(join(tmpdir(), 'bezel-test-'));
+/** Starts Bezel with this run's settings folder. */
+async function launch() {
   app = await electron.launch({
     executablePath: PACKAGED || electronPath,
     args: PACKAGED ? ['--no-sandbox'] : ['--no-sandbox', ROOT],
@@ -72,6 +72,11 @@ test.beforeAll(async () => {
   });
   win = await app.firstWindow();
   await expect(win.locator('#app-version')).toHaveText(/^v\d+\.\d+\.\d+$/);
+}
+
+test.beforeAll(async () => {
+  settings = mkdtempSync(join(tmpdir(), 'bezel-test-'));
+  await launch();
   await expect(win.locator('#sync-btn')).toHaveAttribute('aria-pressed', 'true');
 });
 
@@ -290,4 +295,31 @@ test('a second tab shows another page on the same devices; switching back finds 
   await expect(win.locator('.tab')).toHaveCount(1);
   await expect(win.locator('webview')).toHaveCount(3);
   expect(await inViews('window.left')).toEqual(Array(3).fill('here'));
+});
+
+test('a login survives closing Bezel, and an update installer forcing it closed', async () => {
+  // Like a dev server's login: an HttpOnly session cookie with no expiry, a lasting cookie and a token in localStorage.
+  const signIn = (n) => `fetch('/login?session=${n}').then(() => { document.cookie = 'remember=${n}; max-age=86400; path=/'; localStorage.token = '${n}'; return 0; })`;
+  const signedIn = "fetch('/whoami').then((r) => r.text()).then((cookies) => cookies + ' token=' + localStorage.token)";
+  const userData = await app.evaluate(({ app }) => app.getPath('userData'));
+
+  await inView(LAPTOP, signIn('one'));
+  expect(await inViews(signedIn)).toEqual(Array(3).fill('remember=one; session=one token=one'));
+  await app.close();
+  await launch();
+  await openSite();
+  expect(await inViews(signedIn)).toEqual(Array(3).fill('remember=one; session=one token=one'));
+
+  // Signed in again a moment ago, then forced closed: it never gets to quit.
+  await inView(LAPTOP, signIn('two'));
+  await expect.poll(() => readFileSync(join(userData, 'session-cookies.json'), 'utf8')).toContain('"value":"two"');
+  const exited = new Promise((resolve) => app.process().once('exit', resolve));
+  app.process().kill('SIGKILL');
+  await exited;
+  await launch();
+  await openSite();
+  expect(await inViews(signedIn)).toEqual(Array(3).fill('remember=two; session=two token=two'));
+
+  // Signed out (Bezel keeps its settings between tests).
+  await app.evaluate(({ session }) => session.fromPartition('persist:bezel').clearStorageData());
 });
