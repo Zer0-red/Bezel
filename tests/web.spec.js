@@ -37,6 +37,31 @@ test('the update button knows this is the latest version', async ({ page }) => {
   await expect(page.locator('#update-btn')).toHaveAttribute('data-light', 'ok');
 });
 
+test('the glass B is drawn in the top bar and on the tab', async ({ page }) => {
+  const box = await page.locator('.brand__mark').boundingBox();
+  expect([box.width, box.height]).toEqual([21, 24]);
+  // Draw each file as Chrome renders it (clip path, gradients, blur) and check the B is solid with see-through holes.
+  const drawn = await page.evaluate(async () => {
+    const draw = async (src) => {
+      const [vx, vy, vw, vh] = (await (await fetch(src)).text()).match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const canvas = Object.assign(document.createElement('canvas'), { width: Math.round(vw / 2), height: Math.round(vh / 2) });
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const alpha = ([x, y]) => ctx.getImageData(Math.floor(((x - vx) / vw) * canvas.width), Math.floor(((y - vy) / vh) * canvas.height), 1, 1).data[3];
+      return { solid: [[159, 400], [569, 520], [300, 100]].map(alpha), holes: [[395, 265], [405, 520]].map(alpha), corner: alpha([vx, vy]) };
+    };
+    return [await draw(document.querySelector('.brand__mark').src), await draw(document.querySelector('link[rel="icon"]').href)];
+  });
+  for (const { solid, holes, corner } of drawn) {
+    expect(solid.every((a) => a > 240)).toBe(true);
+    expect(holes.every((a) => a < 16)).toBe(true);
+    expect(corner).toBe(0);
+  }
+});
+
 test('scrolling with the wheel moves the other devices', async ({ page }) => {
   const laptop = (await page.$$(SHOWN))[LAPTOP];
   const box = await laptop.boundingBox();

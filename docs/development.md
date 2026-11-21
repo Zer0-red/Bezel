@@ -58,8 +58,20 @@ The workflow runs the tests first, then creates the `vX.Y.Z` release as a draft,
 - **Updates:** the AppImage downloads the new version and replaces itself when Bezel closes, like Windows. The .deb downloads it too, but only installs when the user clicks **Install**, because `dpkg` asks for the password (through `pkexec`) and that shouldn't pop up on quit. A cancelled password prompt shows *Couldn't install* and the button goes back to **Install**.
 - **No libfuse2 needed:** the AppImage uses the static AppImage runtime (`toolsets.appimage: "1.0.3"`), so it opens on current Ubuntu and Fedora without installing FUSE 2.
 - **Sandbox:** Ubuntu 24.04 and later block unprivileged user namespaces for apps without an AppArmor profile, which Chromium's sandbox needs. The .deb installs a profile (`/etc/apparmor.d/bezel`). The AppImage can't, so its launcher detects this and starts with `--no-sandbox`; that's why the README points Ubuntu users to the .deb.
-- **Icons:** `build/icons/*.png` (16–512 px) are rendered from `build/icon.svg`: `for s in 16 24 32 48 64 128 256 512; do rsvg-convert -w $s -h $s build/icon.svg -o build/icons/${s}x${s}.png; done`. The 256 px one is also the window icon.
+- **Icons:** `build/icons/*.png` (16–512 px) are rendered from `build/icon.svg` (see [The logo](#the-logo)). The 256 px one is also the window icon.
 - **Window and menu entry:** `desktopName` in package.json (`bezel.desktop`) gives the window the app id `bezel`, which matches the menu entry, so the taskbar shows Bezel's icon.
+
+## The logo
+
+The glass B is the user's own SVG, used as drawn. The files differ only in their viewBox: `src/assets/logo-mark.svg` (top bar, a tight 21 × 24 box), `src/assets/favicon.svg` and `build/icon.svg` (square, B centred). After changing the drawing, copy it into all three and render the PNGs with `rsvg-convert` (`apt install librsvg2-bin`):
+
+```bash
+rsvg-convert -w 1024 -h 1024 build/icon.svg -o build/icon.png   # Windows installer and .exe
+for s in 16 24 32 48 64 128 256 512; do rsvg-convert -w $s -h $s build/icon.svg -o build/icons/${s}x${s}.png; done   # Linux
+rsvg-convert -w 315 -h 360 src/assets/logo-mark.svg -o docs/logo.png   # README
+```
+
+`tests/unit/logo.test.js` fails if the files draw different logos or a PNG wasn't rendered from the current one.
 
 ## Where things are
 
@@ -80,6 +92,7 @@ src/styles.css             All styles, with the dark and light colours at the to
 electron/main.cjs          The app: window, device views, emulation, updates
 electron/preload.cjs       The small bridge between the interface and the app
 build/icon.svg             The app icon (build/icon.png and build/icons/ are rendered from it)
+tests/unit/logo.test.js    Checks the logo files are one drawing and the PNGs match it
 ```
 
 ## Device sizes

@@ -1,2 +1,1 @@
-- **Tabs:** test your admin panel next to your site. Click **+** beside the address bar, open the other address, and switch with one click or `Alt+T`. The devices stay exactly where they are, and each tab keeps its pages loaded, so switching is instant and you come back to the same scroll position, still logged in, with forms as you left them.
-- **Steadier desk:** at some window sizes the devices kept jumping by a few pixels (a scrollbar flickering on and off under them). They now hold still.
+- **New logo:** a glossy glass B in violet and blue, on the app icon, the Windows taskbar and Start menu, the Linux app menu, the browser tab and the top bar.
