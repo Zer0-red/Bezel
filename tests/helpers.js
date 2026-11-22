@@ -32,3 +32,19 @@ export const userScrollTo = (selector) =>
 
 /** A device that follows shows the same section at the top, or, if its page is shorter, is at its end with that section in view. */
 export const shows = (where, id) => where.top === id || (where.atEnd && where.inView);
+
+/**
+ * What a device reads as when its page went while the test was reading it: Bezel was loading the
+ * page another device went to. In an expect.poll that is simply not the value yet, so it tries again.
+ */
+export const BETWEEN_PAGES = 'between pages';
+
+// How a read ends when the page goes under it: Playwright's error for an iframe, Electron's for a
+// <webview> (its page replaced on the same site, or by another site's process).
+const PAGE_WENT = /Execution context was destroyed|WebFrame was removed before script could run|Render frame was disposed/;
+
+/** For a read's .catch: a page that went reads as BETWEEN_PAGES; any other error still fails the test. */
+export function betweenPages(error) {
+  if (PAGE_WENT.test(error?.message)) return BETWEEN_PAGES;
+  throw error;
+}

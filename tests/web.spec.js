@@ -1,11 +1,12 @@
 // The web version in Chrome: devices are iframes, and the fixture site includes public/sync.js.
 import { test, expect } from '@playwright/test';
-import { BEZEL, SITE, PHONE, TABLET, LAPTOP, whereIs, userScrollTo, shows } from './helpers.js';
+import { BEZEL, SITE, PHONE, TABLET, LAPTOP, whereIs, userScrollTo, shows, BETWEEN_PAGES, betweenPages } from './helpers.js';
 
 // The devices' pages in the tab in front (other tabs' pages stay loaded behind them).
 const SHOWN = '.rig iframe:not(.is-background)';
 const frames = async (page) => Promise.all((await page.$$(SHOWN)).map((h) => h.contentFrame()));
-const inFrames = async (page, code) => Promise.all((await frames(page)).map((f) => f.evaluate(code)));
+/** Reads page code in every device, in desk order. A device whose page goes meanwhile reads as BETWEEN_PAGES, so polls try again. */
+const inFrames = async (page, code) => Promise.all((await frames(page)).map((f) => f.evaluate(code).catch(betweenPages)));
 const deviceBoxes = (page) => page.$$eval('.rig__frame', (els) => els.map((el) => JSON.stringify(el.getBoundingClientRect())));
 
 test.beforeEach(async ({ page }) => {
@@ -18,6 +19,9 @@ test.beforeEach(async ({ page }) => {
   // Every device has loaded the site and its sync helper has said hello.
   await expect.poll(async () => (await inFrames(page, () => document.title)).join()).toBe('Fixture site,Fixture site,Fixture site');
   await expect.poll(() => page.evaluate(() => document.querySelector('#sync-btn').title)).toMatch(/are synced across devices/);
+  // The devices glide to their size on the desk (a transform transition). Playwright waits only for an
+  // element to hold still inside its own page, so a click aimed at a device still moving lands beside it.
+  await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('.device')].some((d) => d.getAnimations().length))).toBe(false);
 });
 
 test.afterEach(async ({ page }) => {
@@ -31,6 +35,16 @@ test('shows the site on a phone, a tablet and a laptop at their sizes', async ({
   expect(widths[TABLET]).toBeLessThan(1100);
   expect(widths[LAPTOP]).toBeGreaterThan(1200);
   await expect(page.locator('#address-input')).toHaveValue('127.0.0.1:4174');
+});
+
+test('a device whose page goes while the test reads it reads as between pages, so a poll tries again', async ({ page }) => {
+  // Polls read the devices while Bezel loads the page another device went to: that must not fail them.
+  const f = await frames(page);
+  await f[PHONE].evaluate(() => (window.hold = true));
+  const reading = inFrames(page, () => (window.hold ? new Promise(() => (window.hold = 'reading')) : location.search)); // the phone's waits
+  await expect.poll(() => f[PHONE].evaluate(() => window.hold)).toBe('reading');
+  await f[PHONE].goto(`${SITE}/?moved`);
+  expect(await reading).toEqual([BETWEEN_PAGES, '', '']);
 });
 
 test('the update button knows this is the latest version', async ({ page }) => {

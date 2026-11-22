@@ -7,7 +7,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SITE, PHONE, TABLET, LAPTOP, whereIs, userScrollTo, shows } from './helpers.js';
+import { SITE, PHONE, TABLET, LAPTOP, whereIs, userScrollTo, shows, BETWEEN_PAGES, betweenPages } from './helpers.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PACKAGED = process.env.BEZEL_APP; // a built app's executable, if set
@@ -19,9 +19,16 @@ let settings;
 const SHOWN = 'webview:not(.is-background)';
 const BEHIND = 'webview.is-background';
 
-/** Runs page code in every device, in desk order. */
-const inViews = (code, selector = SHOWN) =>
-  win.evaluate(([code, selector]) => Promise.all([...document.querySelectorAll(selector)].map((v) => v.executeJavaScript(code))), [code, selector]);
+/** Reads page code in every device, in desk order. A device whose page goes meanwhile reads as BETWEEN_PAGES, so polls try again. */
+const inViews = async (code, selector = SHOWN) => {
+  const results = await win.evaluate(
+    ([code, selector]) =>
+      Promise.all([...document.querySelectorAll(selector)].map((v) => v.executeJavaScript(code).then((value) => ({ value }), (e) => ({ error: e.message })))),
+    [code, selector],
+  );
+  return results.map(({ value, error }) => (error === undefined ? value : betweenPages(new Error(error))));
+};
+/** Runs page code in one device; it fails if the page goes meanwhile (to poll across a page change, use inViews). */
 const inView = (index, code) => win.evaluate(([i, code, selector]) => document.querySelectorAll(selector)[i].executeJavaScript(code), [index, code, SHOWN]);
 const deviceBoxes = () => win.$$eval('.rig__frame', (els) => els.map((el) => JSON.stringify(el.getBoundingClientRect())));
 
@@ -95,6 +102,18 @@ test('the window has no Node, and device views cannot open local files', async (
   await inView(PHONE, "location.href = 'file:///etc/hostname'; 0").catch(() => {});
   await win.waitForTimeout(800);
   expect(await inView(PHONE, 'location.protocol')).toBe('http:');
+});
+
+test('a device whose page goes while the test reads it reads as between pages, so a poll tries again', async () => {
+  // Polls read the devices while Bezel loads the page another device went to: that must not fail them.
+  for (const to of [`${SITE}/?moved`, 'http://localhost:4174/?moved']) {
+    // The same site, then another site (its page comes from a new process).
+    await inView(PHONE, 'window.hold = true; 0');
+    const reading = inViews("window.hold ? new Promise(() => (window.hold = 'reading')) : location.search"); // the phone's waits
+    await expect.poll(() => inView(PHONE, 'window.hold')).toBe('reading');
+    await inView(PHONE, `setTimeout(() => (location.href = ${JSON.stringify(to)})); 0`);
+    expect(await reading).toEqual([BETWEEN_PAGES, '', '']);
+  }
 });
 
 test('the window fits on the screen', async () => {
@@ -201,7 +220,7 @@ test('with sync off, nothing follows', async () => {
   await clickIn(LAPTOP, '.toggle');
   await inView(LAPTOP, userScrollTo('#about h2'));
   await clickIn(LAPTOP, '#about-link');
-  await expect.poll(() => inView(LAPTOP, 'location.pathname')).toBe('/about.html');
+  await expect.poll(() => inViews('location.pathname').then((p) => p[LAPTOP])).toBe('/about.html');
   await win.waitForTimeout(1000);
   expect(await inViews('location.pathname')).toEqual(['/', '/', '/about.html']);
 });
